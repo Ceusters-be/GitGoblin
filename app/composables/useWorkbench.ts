@@ -65,7 +65,6 @@ export function useWorkbench() {
   let repositoryPersistence = Promise.resolve();
   const wholeFile = ref(false);
   let displayedDiffKey = "";
-  let warmupGeneration = 0;
   const selected = ref(""),
     diff = ref<Diff>({ text: "", fingerprint: "" }),
     mode = ref("working"),
@@ -154,27 +153,6 @@ export function useWorkbench() {
       if (request === diffGeneration) diffLoading.value = false;
     }
   }
-  async function warmDiffs() {
-    const request = ++warmupGeneration;
-    const root = repo.value;
-    const target = base.value;
-    const full = wholeFile.value;
-    if (full) return;
-    const files = [
-      ...working.value.map((file) => ({ path: file.path, mode: "working" })),
-      ...staged.value.map((file) => ({ path: file.path, mode: "staged" })),
-    ].filter((file) => file.path !== selected.value || file.mode !== mode.value).slice(0, 8);
-    for (let i = 0; i < files.length; i += 2) {
-      if (request !== warmupGeneration || busy.value || root !== repo.value || full !== wholeFile.value) return;
-      await Promise.all(files.slice(i, i + 2).map(async (file) => {
-        const key = JSON.stringify([root, file.mode, target, file.path, full]);
-        if (diffCache.get(key)) return;
-        try {
-          await diffCache.load(key, () => git<Diff>({ repo: root, action: "diff", ...file, target, wholeFile: full, limit: 512_000 }), true);
-        } catch { /* The selected-file load reports errors; prefetch is optional. */ }
-      }));
-    }
-  }
   async function refresh(full = false) {
     if (!repo.value || example.value || polling || busy.value || repositoryLoading.value) return;
     const request = generation;
@@ -201,7 +179,6 @@ export function useWorkbench() {
       if (!currentFiles.value.some((f) => f.path === selected.value))
         selected.value = currentFiles.value[0]?.path || "";
       const loading = loadDiff(true, !reloadMetadata);
-      void warmDiffs();
       await loading;
       if (full || changed) {
         await loadHistory(true);
@@ -234,7 +211,6 @@ export function useWorkbench() {
     generation++;
     diffGeneration++;
     historyGeneration++;
-    warmupGeneration++;
     repositoryLoading.value = true;
     busy.value = true;
     error.value = "";
@@ -248,7 +224,6 @@ export function useWorkbench() {
       selectedCommit.value = undefined;
       historyDiff.value = "";
       diffGeneration++;
-      warmupGeneration++;
       repo.value = loaded.root;
       example.value = false;
       snapshot.value = loaded;
@@ -281,7 +256,6 @@ export function useWorkbench() {
       if (request === repositoryRequest) {
         repositoryLoading.value = false;
         busy.value = false;
-        void warmDiffs();
       }
     }
   }
@@ -294,7 +268,6 @@ export function useWorkbench() {
     historyDiff.value = "";
     diffGeneration++;
     diffCache.clear();
-    warmupGeneration++;
     example.value = true;
     repo.value = demoSnapshot.root;
     snapshot.value = structuredClone(demoSnapshot);
@@ -331,7 +304,6 @@ export function useWorkbench() {
       const changed = new Set(paths);
       diffCache.invalidate(key => { const [root, , , path] = JSON.parse(key); return root === repo.value && changed.has(path); });
     } else diffCache.clear();
-    warmupGeneration++;
     error.value = "";
     notice.value = "";
     try {
@@ -344,8 +316,7 @@ export function useWorkbench() {
     } finally {
       if (indexOnly) await refreshFiles();
       busy.value = false;
-      if (indexOnly) void warmDiffs();
-      else await refresh(true);
+      if (!indexOnly) await refresh(true);
     }
   }
   async function mutate(action: string, extra: Partial<GitRequest> = {}) {
@@ -523,7 +494,6 @@ export function useWorkbench() {
   });
   onUnmounted(() => {
     generation++;
-    warmupGeneration++;
     clearInterval(timer);
   });
   return {

@@ -1,11 +1,48 @@
 import { expect, it, vi } from 'vitest';
-import { effectScope } from 'vue';
+import { effectScope, nextTick } from 'vue';
 import { useWorkbench } from '../app/composables/useWorkbench';
 import { demoSnapshot } from '../app/lib/demo';
 import { git } from '../app/lib/native';
 
 vi.mock('vue', async original => ({ ...await original<typeof import('vue')>(), onMounted: vi.fn(), onUnmounted: vi.fn() }));
 vi.mock('../app/lib/native', () => ({ desktop: () => true, git: vi.fn(), invoke: vi.fn() }));
+
+it('does not hold the next staging action behind speculative diff reads', async () => {
+  const files = ['first.txt', 'next.txt', 'offscreen.txt'].map(path => ({ path, index: ' ', worktree: 'M', conflict: false }));
+  let release!: () => void;
+  const slowRead = new Promise<void>(done => { release = done; });
+  let backgroundReading = false;
+  vi.mocked(git).mockImplementation(async request => {
+    if (request.action === 'diff') {
+      if (request.limit) { backgroundReading = true; await slowRead; }
+      return { text: '+content', fingerprint: 'current' };
+    }
+    if (request.action === 'stage') {
+      // Native mutations wait for active repository readers to release their lock.
+      if (backgroundReading) await slowRead;
+      return 'Index updated';
+    }
+    return files.slice(1);
+  });
+  const scope = effectScope();
+  const w = scope.run(() => useWorkbench())!;
+  w.repo.value = demoSnapshot.root;
+  w.snapshot.value = { ...demoSnapshot, files };
+  w.selected.value = 'first.txt';
+  let second: Promise<unknown> | undefined;
+  try {
+    await w.stageFiles(['first.txt'], 'working');
+    let finished = false;
+    second = w.stageFiles(['next.txt'], 'working').then(() => { finished = true; });
+    for (let i = 0; i < 20; i++) await nextTick();
+    expect(finished).toBe(true);
+    expect(w.busy.value).toBe(false);
+  } finally {
+    release();
+    await second;
+    scope.stop();
+  }
+});
 
 it.each(['working', 'staged'])('updates %s file lists without waiting for metadata, history or the next diff', async mode => {
   const file = { path: 'file.txt', index: mode === 'staged' ? 'M' : ' ', worktree: mode === 'staged' ? ' ' : 'M', conflict: false };
