@@ -1,0 +1,92 @@
+// @vitest-environment happy-dom
+import { readFileSync } from 'node:fs';
+import { compileScript, parse } from '@vue/compiler-sfc';
+import { ModuleKind, transpile } from 'typescript';
+import * as Vue from 'vue';
+import * as Icons from 'lucide-vue-next';
+import * as files from '../app/lib/files';
+import * as selection from '../app/lib/file-selection';
+import * as diff from '../app/lib/diff';
+import * as windowing from '../app/lib/diff-window';
+import * as statuses from '../app/lib/diff-files';
+import * as geometry from '../app/lib/diff-geometry';
+import * as session from '../app/lib/diff-session';
+import { expect, it, vi } from 'vitest';
+
+function component(name: string) {
+  const { descriptor } = parse(readFileSync(`app/components/${name}.vue`, 'utf8'));
+  const compiled = compileScript(descriptor, { id: name, inlineTemplate: true });
+  const exports: any = {};
+  const modules: Record<string, unknown> = { vue: Vue, 'lucide-vue-next': Icons,
+    '~/lib/files': files, '~/lib/file-selection': selection, '~/lib/diff': diff,
+    '~/lib/diff-window': windowing, '~/lib/diff-files': statuses, '~/lib/diff-geometry': geometry, '~/lib/diff-session': session };
+  new Function('require', 'exports', transpile(compiled.content.replaceAll('import.meta.url', '"https://test.invalid/app.vue"'), { module: ModuleKind.CommonJS }))(
+    (name: string) => modules[name], exports);
+  return exports.default;
+}
+function mount(name: string, props: Record<string, unknown>) {
+  const host = document.createElement('div');
+  host.className = 'file-list';
+  document.body.append(host);
+  const app = Vue.createApp(component(name), props);
+  for (const name of ['AppButton', 'AppCodeSurface', 'ContextMenu', 'DiffFileNavigator', 'DiffOverview'])
+    app.component(name, { setup: (_, { slots, expose }) => { expose({ close: () => {} }); return () => Vue.h(name === 'AppButton' ? 'button' : 'div', slots.default?.()); } });
+  app.mount(host);
+  return { host, stop: () => { app.unmount(); host.remove(); } };
+}
+
+it('windows 5000 files and keeps the last file reachable by keyboard', async () => {
+  const { host, stop } = mount('FileList', { files: Array.from({ length: 5000 }, (_, i) => ({ path: `file-${i}`, index: ' ', worktree: 'M', conflict: false })), tree: false, selected: '', mode: 'working' });
+  try {
+    Object.defineProperty(host, 'clientHeight', { value: 400 });
+    const list = host.querySelector('ul')!;
+    list.getBoundingClientRect = () => new DOMRect(0, -host.scrollTop, 300, 125000);
+    expect(host.querySelectorAll('[data-path]').length).toBeLessThan(60);
+    host.querySelector('button')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    await Vue.nextTick(); await Vue.nextTick();
+    expect(document.activeElement?.closest<HTMLElement>('[data-path]')?.dataset.path).toBe('file-4999');
+    expect(host.querySelectorAll('[data-path]').length).toBeLessThan(60);
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+    await Vue.nextTick(); await Vue.nextTick();
+    expect(document.activeElement?.closest<HTMLElement>('[data-path]')?.dataset.path).toBe('file-0');
+  } finally { stop(); }
+});
+
+it('cancels obsolete large-diff workers and renders only the latest result', async () => {
+  const workers: FakeWorker[] = [];
+  class FakeWorker {
+    onmessage?: (event: { data: unknown }) => void;
+    terminate = vi.fn();
+    postMessage = vi.fn();
+    constructor(public url: URL) { workers.push(this); }
+  }
+  vi.stubGlobal('Worker', FakeWorker);
+  const props = Vue.reactive({ text: '+'.repeat(300001), mode: 'working', path: 'large.txt' });
+  const host = document.createElement('div');
+  const app = Vue.createApp({ setup: () => () => Vue.h(componentValue, props) });
+  const componentValue = component('DiffViewer');
+  for (const name of ['AppButton', 'AppCodeSurface', 'ContextMenu', 'DiffFileNavigator', 'DiffOverview'])
+    app.component(name, { setup: (_, { slots, expose }) => { expose({ close: () => {} }); return () => Vue.h(name === 'AppButton' ? 'button' : 'div', slots.default?.()); } });
+  app.mount(host);
+  try {
+    const old = workers.find(worker => worker.url.pathname.includes('geometry'))!;
+    expect(old.postMessage).toHaveBeenCalled();
+    expect(host.textContent).toContain('Loading changes');
+    const receive = session.createDiffSession();
+    old.onmessage!({ data: receive(old.postMessage.mock.calls[0]![0]) });
+    await Vue.nextTick();
+    (host.querySelector('[aria-label="Increase diff font size"]') as HTMLButtonElement).click();
+    await Vue.nextTick();
+    expect(workers.filter(worker => worker.url.pathname.includes('geometry'))).toHaveLength(1);
+    expect(old.postMessage.mock.lastCall![0].text).toBeUndefined();
+    old.onmessage!({ data: receive(old.postMessage.mock.lastCall![0]) });
+    await Vue.nextTick();
+    props.text = 'latest file';
+    await Vue.nextTick();
+    expect(old.terminate).toHaveBeenCalled();
+    old.onmessage!({ data: geometry.diffGeometry('obsolete file', 'split', 23, 11) });
+    await Vue.nextTick();
+    expect(host.textContent).toContain('latest file');
+    expect(host.textContent).not.toContain('obsolete file');
+  } finally { app.unmount(); vi.unstubAllGlobals(); }
+});

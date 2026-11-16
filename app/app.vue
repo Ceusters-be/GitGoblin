@@ -984,7 +984,6 @@ async function stage() {
   try {
     await w.mutate(mode.value === "staged" ? "unstage" : "stage", {
       path: selected.value,
-      fingerprint: diff.value.fingerprint,
     });
   } catch {}
 }
@@ -2185,7 +2184,7 @@ onUnmounted(() => {
                     v-if="mode !== 'branch' && !selectedFile?.conflict"
                     class="secondary small bg-[#22252e] [border-color:#30343f] text-[#c9d0e3] text-[11px] py-[4px] px-[7px] rounded-[4px]"
                     :disabled="
-                      busy || diffLoading || example || !diff.fingerprint
+                      busy || example || !selected
                     "
                     @click="stage"
                   >

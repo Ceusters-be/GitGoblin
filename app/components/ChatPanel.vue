@@ -2,6 +2,7 @@
 import {
   computed,
   ref,
+  shallowRef,
   onMounted,
   onUnmounted,
   watch,
@@ -50,7 +51,7 @@ import {
   repositoryThreads,
   repositoryThreadKey,
 } from "~/lib/threads";
-import { chatActivity } from "~/lib/chat-tabs";
+import { chatActivity, updateChatActivities } from "~/lib/chat-tabs";
 import { chatWorktreeOptions } from "~/lib/chat-worktrees";
 import {
   chatModelChoices,
@@ -89,9 +90,9 @@ const emit = defineEmits<{
 const client = new T3Client(() => invoke<string>("t3_ticket"));
 const state = ref("disconnected"),
   error = ref(""),
-  threads = ref<T3Thread[]>([]),
-  projects = ref<T3Project[]>([]),
-  projection = ref<T3Projection>(),
+  threads = shallowRef<T3Thread[]>([]),
+  projects = shallowRef<T3Project[]>([]),
+  projection = shallowRef<T3Projection>(),
   selectedId = ref("");
 const pairing = ref(""),
   origin = ref("http://127.0.0.1:3773"),
@@ -514,6 +515,18 @@ const turns = computed(() =>
     busy.value ? thread.value?.activeRunId || "active" : null,
   ),
 );
+const visibleTurnCount = ref(40);
+const visibleTurns = computed(() => turns.value.slice(-visibleTurnCount.value));
+watch(selectedId, () => { visibleTurnCount.value = 40; });
+async function showEarlierTurns() {
+  const body = conversationBody.value;
+  const previousHeight = body?.scrollHeight || 0;
+  const previousTop = body?.scrollTop || 0;
+  followMessages = false;
+  visibleTurnCount.value += 40;
+  await nextTick();
+  if (body) body.scrollTop = previousTop + body.scrollHeight - previousHeight;
+}
 const activityStatus = computed(() =>
   sending.value
     ? "Sending instruction…"
@@ -534,33 +547,35 @@ const matchingThreads = computed(() =>
 const activeMatchingThreads = computed(() =>
   matchingThreads.value.filter(isThreadRunning),
 );
-client.onChange = () => {
-  state.value = client.status;
-  error.value = client.error;
-  threads.value = [...client.threads];
-  projects.value = [...client.projects];
-  projection.value = client.projection ? { ...client.projection } : undefined;
-  emit("threads", threads.value, projects.value, connected.value);
-  if (connected.value)
-    client.watchThreads(
-      threads.value
-        .filter(
-          (thread) =>
-            !thread.deletedAt &&
-            (!thread.archivedAt || props.openThreadIds.includes(thread.id)),
-        )
-        .map((thread) => thread.id),
+const activityByThread = new Map<string, ReturnType<typeof chatActivity>>();
+const changedProjections = new Set<string>();
+let chatSyncQueued = false, chatDisposed = false;
+let displayedProjection: T3Projection | undefined;
+client.onChange = (changedThreadId) => {
+  if (changedThreadId) changedProjections.add(changedThreadId);
+  if (chatSyncQueued || chatDisposed) return;
+  chatSyncQueued = true;
+  queueMicrotask(() => {
+    chatSyncQueued = false;
+    if (chatDisposed) return;
+    state.value = client.status;
+    error.value = client.error;
+    const shellChanged = threads.value !== client.threads || projects.value !== client.projects;
+    threads.value = client.threads;
+    projects.value = client.projects;
+    if (displayedProjection !== client.projection || changedProjections.has(selectedId.value)) {
+      displayedProjection = client.projection;
+      projection.value = displayedProjection ? { ...displayedProjection } : undefined;
+    }
+    if (shellChanged || !changedProjections.size) emit("threads", threads.value, projects.value, connected.value);
+    if (connected.value && (shellChanged || !changedProjections.size)) client.watchThreads(
+      threads.value.filter(thread => !thread.deletedAt && (!thread.archivedAt || props.openThreadIds.includes(thread.id))).map(thread => thread.id),
     );
-  emit(
-    "activity",
-    Object.fromEntries(
-      [...client.projections].map(([id, projection]) => [
-        id,
-        chatActivity(projection),
-      ]),
-    ),
-  );
+    emit("activity", updateChatActivities(activityByThread, client.projections, changedProjections));
+    changedProjections.clear();
+  });
 };
+
 function select(id: string) {
   followMessages = true;
   conversationScroll = undefined;
@@ -884,6 +899,7 @@ watch(
 onUnmounted(() => {
   for (const draft of Object.values(imageDrafts.value))
     for (const image of draft) URL.revokeObjectURL(image.preview);
+  chatDisposed = true;
   client.disconnect();
 });
 defineExpose({
@@ -989,7 +1005,10 @@ defineExpose({
           <MessageSquare :size="26" />
           <p>Open a chat from All chats, or start a new conversation.</p>
         </div>
-        <template v-for="turn in turns" :key="turn.id">
+        <AppButton v-if="turns.length > visibleTurnCount" @click="showEarlierTurns">
+          Show earlier messages ({{ turns.length - visibleTurnCount }})
+        </AppButton>
+        <template v-for="turn in visibleTurns" :key="turn.id">
           <div
             v-for="message in turn.users"
             :key="message.id"

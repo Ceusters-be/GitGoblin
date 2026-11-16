@@ -7,6 +7,25 @@ import { desktop, git, invoke } from '../app/lib/native';
 vi.mock('vue', async (original) => ({ ...await original<typeof import('vue')>(), onMounted: vi.fn(), onUnmounted: vi.fn() }));
 vi.mock('../app/lib/native', () => ({ desktop: vi.fn(() => true), git: vi.fn(), invoke: vi.fn(async () => []) }));
 
+it('unblocks a loaded repository while recent-history persistence is still pending', async () => {
+  let finish!: () => void;
+  vi.mocked(invoke).mockImplementation(async command => command === 'repositories_save'
+    ? new Promise<void>(resolve => { finish = resolve; }) : []);
+  vi.mocked(git).mockImplementation(async request => request.action === 'snapshot'
+    ? { ...demoSnapshot, root: 'D:/ready', files: [] } : []);
+  const scope = effectScope();
+  const w = scope.run(() => useWorkbench())!;
+  const opening = w.openRepo('D:/ready');
+  for (let i = 0; i < 20; i++) await Promise.resolve();
+  const busyBeforeSave = w.busy.value;
+  finish();
+  await opening;
+  expect(w.repo.value).toBe('D:/ready');
+  expect(busyBeforeSave).toBe(false);
+  vi.mocked(invoke).mockResolvedValue([]);
+  scope.stop();
+});
+
 it('removes only the saved recent and favorite links while keeping the current workspace open', async () => {
   vi.mocked(invoke).mockClear();
   vi.mocked(git).mockClear();

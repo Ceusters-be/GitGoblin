@@ -1,5 +1,5 @@
 use super::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 // Only remove the index lock that this operation successfully created.
 struct IndexLock {
@@ -68,84 +68,41 @@ pub(super) fn update(repo: &Path, files: &[BulkFile], stage: bool) -> Result<(),
         index_git(repo, &gitdir, &prepared, repo, &["read-tree", "--empty"], None)?;
     }
 
-    // One index read supplies every file's original fingerprint and conflict state.
+    // Keep conflict resolution separate from ordinary staging.
     let raw = bytes(repo, &["ls-files", "--stage", "-z"], None)?;
-    let mut entries: HashMap<String, Vec<u8>> = HashMap::new();
     for record in raw.split_inclusive(|byte| *byte == 0) {
         let Some(tab) = record.iter().position(|byte| *byte == b'\t') else { continue; };
         let path = String::from_utf8_lossy(&record[tab + 1..record.len() - 1]);
         if !selected.contains(path.as_ref()) { continue; }
         if !record[..tab].ends_with(b" 0") { return Err("Resolve conflicting files before staging these changes.".into()); }
-        entries.entry(path.into_owned()).or_default().extend_from_slice(record);
     }
-    let snapshot = tempfile::tempdir().map_err(|e| e.to_string())?;
-    let mut attributes = HashSet::new();
     let mut paths = Vec::new();
-    let mut links = Vec::new();
     for file in files {
         let source = repo.join(&file.path);
         let parent = source.parent().unwrap().ancestors().find(|path| path.exists()).ok_or("File parent is unavailable.")?;
         if !fs::canonicalize(parent).map_err(|e| e.to_string())?.starts_with(repo) {
             return Err("File resolves outside this worktree.".into());
         }
-        let content = file_content(repo, &file.path)?;
-        if !file.fingerprint.is_empty() && fingerprint_bytes(entries.get(&file.path).map(Vec::as_slice).unwrap_or_default(), content.as_deref()) != file.fingerprint {
-            return Err(format!("{} changed since review. Refresh and try again.", file.path));
-        }
-        if stage {
-            if let Some(content) = content {
-                let meta = fs::symlink_metadata(&source).map_err(|e| e.to_string())?;
-                if meta.is_symlink() {
-                    if !entries.contains_key(&file.path) && git(repo, &["check-ignore", "--quiet", "--", &file.path]).is_ok() {
-                        return Err(format!("{} is ignored by Git.", file.path));
-                    }
-                    links.push((&file.path, content));
-                    continue;
-                }
-                let destination = snapshot.path().join(&file.path);
-                fs::create_dir_all(destination.parent().unwrap()).map_err(|e| e.to_string())?;
-                fs::write(&destination, content).map_err(|e| e.to_string())?;
-                #[cfg(unix)]
-                fs::set_permissions(&destination, meta.permissions()).map_err(|e| e.to_string())?;
-            }
-            for parent in Path::new(&file.path).parent().unwrap().ancestors() { attributes.insert(parent.to_path_buf()); }
+        match fs::symlink_metadata(&source) {
+            Ok(meta) if meta.is_dir() => return Err("Directory and submodule staging is not supported yet.".into()),
+            Ok(_) => {},
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {},
+            Err(e) => return Err(e.to_string()),
         }
         paths.extend_from_slice(file.path.as_bytes());
         paths.push(0);
-    }
-    // Use Git's normal clean filters and ignore rules at the original relative paths.
-    // The snapshot makes later agent edits remain unstaged, rather than staging unseen bytes.
-    for parent in attributes {
-        for name in [".gitattributes", ".gitignore"] {
-            let relative = parent.join(name);
-            if selected.contains(relative.to_string_lossy().replace('\\', "/").as_str()) { continue; }
-            let source = repo.join(&relative);
-            if fs::symlink_metadata(&source).map(|meta| meta.is_file()).unwrap_or(false) {
-                let destination = snapshot.path().join(relative);
-                fs::create_dir_all(destination.parent().unwrap()).map_err(|e| e.to_string())?;
-                fs::write(destination, fs::read(source).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
-            }
-        }
     }
     if !paths.is_empty() {
         let mut pathspec = tempfile::NamedTempFile::new().map_err(|e| e.to_string())?;
         pathspec.write_all(&paths).map_err(|e| e.to_string())?;
         let option = format!("--pathspec-from-file={}", pathspec.path().to_string_lossy());
         if stage {
-            index_git(repo, &gitdir, &prepared, snapshot.path(), &["add", "-A", &option, "--pathspec-file-nul"], None)?;
+            index_git(repo, &gitdir, &prepared, repo, &["add", "-A", &option, "--pathspec-file-nul"], None)?;
         } else if git(repo, &["rev-parse", "--verify", "HEAD"]).is_ok() {
             index_git(repo, &gitdir, &prepared, repo, &["restore", "--source=HEAD", "--staged", &option, "--pathspec-file-nul"], None)?;
         } else {
             index_git(repo, &gitdir, &prepared, repo, &["update-index", "--force-remove", "-z", "--stdin"], Some(&paths))?;
         }
-    }
-    if !links.is_empty() {
-        let mut info = Vec::new();
-        for (path, content) in links {
-            let oid = bytes(repo, &["hash-object", "-w", "--stdin"], Some(&content))?;
-            info.extend_from_slice(format!("120000 {}\t{path}\0", String::from_utf8_lossy(&oid).trim()).as_bytes());
-        }
-        index_git(repo, &gitdir, &prepared, repo, &["update-index", "-z", "--index-info"], Some(&info))?;
     }
     lock.commit(&prepared, &index)
 }

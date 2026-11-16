@@ -10,22 +10,52 @@ export function conversationTurns(projection: T3Projection | undefined, activeRu
     if (!groups.length || message.role === 'user') groups.push([]);
     groups.at(-1)!.push(message);
   }
+  const messageGroups = new Map<string, number>();
+  const runGroups = new Map<string, Set<number>>();
+  function addRun(run: string, index: number) {
+    if (!runGroups.has(run)) runGroups.set(run, new Set());
+    runGroups.get(run)!.add(index);
+  }
+  groups.forEach((group, index) => {
+    for (const message of group) {
+      messageGroups.set(message.id, index);
+      const run = message.runId || message.turnId;
+      if (run) addRun(run, index);
+    }
+  });
+  for (const run of projection?.runs || []) {
+    const index = messageGroups.get(run.userMessageId);
+    if (index !== undefined) addRun(run.id, index);
+  }
+  if (groups.length && activeRunId) addRun(activeRunId, groups.length - 1);
+  function distribute<T>(items: T[], run: (item: T) => unknown, date: (item: T) => unknown, runOnly = false) {
+    const buckets: T[][] = groups.map(() => []);
+    for (const item of items) {
+      const id = run(item);
+      const targets = new Set(id ? runGroups.get(String(id)) : undefined);
+      const time = date(item);
+      if ((!runOnly || !id) && typeof time === 'string') {
+        let low = 0, high = groups.length;
+        while (low < high) {
+          const middle = (low + high) >>> 1;
+          if (groups[middle]![0]!.createdAt <= time) low = middle + 1;
+          else high = middle;
+        }
+        if (low) targets.add(low - 1);
+      }
+      for (const index of targets) buckets[index]!.push(item);
+    }
+    return buckets;
+  }
+  const activityGroups = distribute(projection?.activities || [], item => item.turnId, item => item.createdAt);
+  const itemGroups = distribute(projection?.turnItems || [], item => item.runId, item => item.startedAt || item.createdAt);
+  const agentGroups = distribute(chatSubagents(projection), agent => agent.runId, agent => agent.startedAt || agent.updatedAt, true);
   return groups.map((group, index) => {
     const start = group[0]!.createdAt;
-    const end = groups[index + 1]?.[0]?.createdAt;
-    const runIds = new Set(group.flatMap(message => message.runId || message.turnId ? [message.runId || message.turnId] : []));
-    for (const run of projection?.runs || [])
-      if (group.some(message => message.id === run.userMessageId)) runIds.add(run.id);
-    if (index === groups.length - 1 && activeRunId) runIds.add(activeRunId);
-    const belongs = (run: unknown, date: unknown) => run && runIds.has(String(run)) || typeof date === 'string' && date >= start && (!end || date < end);
     const activities = chatActivities(projection && {
-      ...projection,
-      activities: projection.activities?.filter(item => belongs(item.turnId, item.createdAt)),
-      turnItems: projection.turnItems?.filter(item => belongs(item.runId, item.startedAt || item.createdAt)),
+      ...projection, activities: activityGroups[index], turnItems: itemGroups[index]!,
     }, null, false);
-    const subagents = chatSubagents(projection).filter(agent => agent.runId
-      ? runIds.has(agent.runId)
-      : belongs(null, agent.startedAt || agent.updatedAt));
+    const subagents = agentGroups[index]!;
     const assistants = group.filter(message => message.role === 'assistant');
     const running = index === groups.length - 1 && (!!activeRunId || assistants.some(message => message.streaming));
     const final = assistants.at(-1);

@@ -1,6 +1,23 @@
 import { expect, it } from 'vitest';
-import { chatActivity, chatHistory, chatState, closeChatTab, moveChatTab, openChatTab, restoreChatTabs } from '../app/lib/chat-tabs';
+import { chatActivity, chatHistory, chatState, closeChatTab, moveChatTab, openChatTab, restoreChatTabs, updateChatActivities } from '../app/lib/chat-tabs';
 import type { T3Projection, T3Thread } from '../app/lib/types';
+
+it('only scans changed conversations and drops unsubscribed activity states', () => {
+  let reads = 0;
+  const projections = new Map(Array.from({ length: 500 }, (_, i) => [String(i), {
+    get messages() { reads++; return []; }, runtimeRequests: [], turnItems: [],
+  } as unknown as T3Projection]));
+  const states = new Map<string, ReturnType<typeof chatActivity>>();
+  updateChatActivities(states, projections, projections.keys());
+  expect(reads).toBe(500);
+  reads = 0;
+  projections.delete('2');
+  const result = updateChatActivities(states, projections, ['1']);
+  expect(reads).toBe(1);
+  expect(result['1']).toEqual({ attention: false, response: '' });
+  expect(result['2']).toBeUndefined();
+  expect(Object.keys(result)).toHaveLength(499);
+});
 
 it('prioritizes input requests and failures over working or completed state', () => {
   expect(chatState({ attention: true, running: true, completed: true })).toBe('waiting');

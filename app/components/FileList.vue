@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { ChevronRight, ChevronDown, Folder, FileCode2 } from "lucide-vue-next";
 import { fileChange, fileTree, type FileNode } from "~/lib/files";
 import type { FileStatus } from "~/lib/types";
@@ -154,6 +154,7 @@ watch(
   () => menu.value?.close(),
 );
 const collapsed = ref(new Set<string>());
+const treeNodes = computed(() => fileTree(props.files));
 const rows = computed(() => {
   if (!props.tree)
     return props.files.map((file) => ({
@@ -174,9 +175,58 @@ const rows = computed(() => {
       if (!collapsed.value.has(node.path)) visit(node.children, depth + 1);
     }
   };
-  visit(fileTree(props.files), 0);
+  visit(treeNodes.value, 0);
   return result;
 });
+const list = ref<HTMLElement>();
+const scrollTop = ref(0), viewportHeight = ref(400);
+let scrollParent: HTMLElement | undefined;
+let resize: ResizeObserver | undefined;
+function listTop() {
+  return list.value!.getBoundingClientRect().top - scrollParent!.getBoundingClientRect().top + scrollParent!.scrollTop;
+}
+function measureViewport() {
+  if (!scrollParent || !list.value) return;
+  scrollTop.value = Math.max(0, scrollParent.scrollTop - listTop());
+  viewportHeight.value = scrollParent.clientHeight;
+}
+const windowStart = computed(() => rows.value.length > 200
+  ? Math.min(Math.max(0, rows.value.length - 1), Math.max(0, Math.floor(scrollTop.value / 25) - 10)) : 0);
+const windowEnd = computed(() => rows.value.length > 200
+  ? Math.min(rows.value.length, windowStart.value + Math.ceil(viewportHeight.value / 25) + 20) : rows.value.length);
+const visibleRows = computed(() => rows.value.slice(windowStart.value, windowEnd.value));
+onMounted(() => {
+  scrollParent = list.value?.closest('.file-list') as HTMLElement | undefined;
+  if (!scrollParent) return;
+  scrollParent.addEventListener('scroll', measureViewport, { passive: true });
+  resize = new ResizeObserver(measureViewport);
+  resize.observe(scrollParent);
+  measureViewport();
+});
+onUnmounted(() => {
+  scrollParent?.removeEventListener('scroll', measureViewport);
+  resize?.disconnect();
+});
+watch(rows, async () => { await nextTick(); measureViewport(); });
+async function navigate(event: KeyboardEvent) {
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+  const target = (event.target as HTMLElement).closest<HTMLElement>('[data-path]');
+  if (!target || !rows.value.length) return;
+  event.preventDefault();
+  const current = rows.value.findIndex(row => row.path === target.dataset.path);
+  const index = event.key === 'Home' ? 0 : event.key === 'End' ? rows.value.length - 1
+    : Math.max(0, Math.min(rows.value.length - 1, current + (event.key === 'ArrowDown' ? 1 : -1)));
+  if (scrollParent && list.value) {
+    const top = listTop() + index * 25;
+    if (top < scrollParent.scrollTop) scrollParent.scrollTop = top;
+    else if (top + 25 > scrollParent.scrollTop + scrollParent.clientHeight)
+      scrollParent.scrollTop = top + 25 - scrollParent.clientHeight;
+    measureViewport();
+  }
+  await nextTick();
+  const row = Array.from(list.value?.querySelectorAll<HTMLElement>('[data-path]') || []).find(el => el.dataset.path === rows.value[index]!.path);
+  row?.querySelector<HTMLButtonElement>('button')?.focus();
+}
 function toggle(path: string) {
   if (collapsed.value.has(path)) collapsed.value.delete(path);
   else collapsed.value.add(path);
@@ -197,10 +247,14 @@ function toggle(path: string) {
       {{ mode === "staged" ? "Unstage selected" : "Stage selected" }}
     </AppButton>
   </div>
-  <ul class="compact-files select-none list-none m-0 p-0">
+  <ul ref="list" class="compact-files select-none list-none m-0 p-0" @keydown="navigate">
+    <li v-if="windowStart" aria-hidden="true" :style="{ height: `${windowStart * 25}px` }" />
     <li
-      v-for="row in rows"
+      v-for="(row, rowIndex) in visibleRows"
       :key="row.path"
+      :data-path="row.path"
+      :aria-posinset="windowStart + rowIndex + 1"
+      :aria-setsize="rows.length"
       class="file-entry flex items-center"
       @contextmenu="openMenu($event, row)"
     >
@@ -263,6 +317,7 @@ function toggle(path: string) {
         {{ mode === "staged" ? "Unstage" : "Stage" }}
       </AppButton>
     </li>
+    <li v-if="windowEnd < rows.length" aria-hidden="true" :style="{ height: `${(rows.length - windowEnd) * 25}px` }" />
   </ul>
   <ContextMenu ref="menu" @error="emit('error', $event)" />
 </template>

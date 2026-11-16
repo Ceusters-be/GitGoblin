@@ -39,6 +39,8 @@ export interface Diff {
   fingerprint: string;
 }
 export interface GitRequest {
+  clientId?: string;
+  requestId?: number;
   repo: string;
   action: string;
   path?: string;

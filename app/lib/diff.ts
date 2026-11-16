@@ -162,10 +162,8 @@ export function selectedPatch(
     if (newCount > 0 && newStart === 0) newStart = 1;
     if (oldCount === 0 && newCount > 0) newStart = oldStart + 1;
     if (newCount === 0 && oldCount > 0) newStart = Math.max(0, oldStart - 1);
-    result.push(
-      `@@ -${oldStart},${oldCount} +${newStart},${newCount} @@`,
-      ...lines,
-    );
+    result.push(`@@ -${oldStart},${oldCount} +${newStart},${newCount} @@`);
+    for (const line of lines) result.push(line);
     offset += newCount - oldCount;
   }
   if (result.length === 1) throw new Error("Select at least one changed line.");

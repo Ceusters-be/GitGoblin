@@ -7,14 +7,18 @@ mod shell;
 mod t3_images;
 use serde_json::{json, Value};
 use std::{
-    sync::{Arc, Mutex, RwLock},
+    collections::HashMap,
+    path::PathBuf,
+    sync::{Arc, Mutex, RwLock, Weak},
+    sync::atomic::{AtomicU64, Ordering},
     time::Duration,
 };
 use tauri::{Manager, State};
 
 #[derive(Default)]
 struct AppState {
-    git_lock: Arc<RwLock<()>>,
+    git_locks: Arc<Mutex<HashMap<PathBuf, Weak<RwLock<()>>>>>,
+    diff_requests: Mutex<HashMap<String, Arc<AtomicU64>>>,
     t3: Mutex<Option<(String, String)>>,
 }
 
@@ -26,14 +30,53 @@ async fn devops_tickets(repo: String, query: String) -> Result<Value, String> {
 
 #[tauri::command]
 async fn git_request(request: git::Request, state: State<'_, AppState>) -> Result<Value, String> {
-    // Reads can run together; mutations still exclude every other Git operation.
-    let lock = state.git_lock.clone();
+    let locks = state.git_locks.clone();
+    let latest = if request.action == "diff" && !request.client_id.is_empty() {
+        let mut requests = state.diff_requests.lock().map_err(|error| error.to_string())?;
+        let latest = requests.entry(request.client_id.clone()).or_default().clone();
+        latest.fetch_max(request.request_id, Ordering::SeqCst);
+        Some(latest)
+    } else { None };
+    let request_id = request.request_id;
     tauri::async_runtime::spawn_blocking(move || {
+        let check = || if latest.as_ref().is_some_and(|latest| latest.load(Ordering::SeqCst) != request_id) {
+            Err("Diff request superseded".to_string())
+        } else { Ok(()) };
+        check()?;
+        let lock = repository_lock(&locks, &request.repo)?;
         let action = request.action.clone();
-        with_git_access(&lock, &action, || git::execute(request))
+        with_git_access(&lock, &action, || git::execute_checked(request, check))
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+fn repository_lock(locks: &Mutex<HashMap<PathBuf, Weak<RwLock<()>>>>, repo: &str) -> Result<Arc<RwLock<()>>, String> {
+    let path = std::fs::canonicalize(repo).map_err(|error| error.to_string())?;
+    let mut common = None;
+    for root in path.ancestors() {
+        let marker = root.join(".git");
+        let gitdir = if marker.is_dir() { marker }
+        else if marker.is_file() {
+            let contents = std::fs::read_to_string(&marker).map_err(|error| error.to_string())?;
+            root.join(contents.trim().strip_prefix("gitdir: ").ok_or("Invalid Git directory marker")?)
+        } else { continue; };
+        let shared = gitdir.join("commondir");
+        let directory = if shared.exists() {
+            gitdir.join(std::fs::read_to_string(shared).map_err(|error| error.to_string())?.trim())
+        } else { gitdir };
+        common = Some(std::fs::canonicalize(directory).map_err(|error| error.to_string())?);
+        break;
+    }
+    let key = common.ok_or("Choose a Git worktree")?;
+    #[cfg(windows)]
+    let key = PathBuf::from(key.to_string_lossy().to_lowercase());
+    let mut locks = locks.lock().map_err(|error| error.to_string())?;
+    locks.retain(|_, lock| lock.strong_count() > 0);
+    if let Some(lock) = locks.get(&key).and_then(Weak::upgrade) { return Ok(lock); }
+    let lock = Arc::new(RwLock::new(()));
+    locks.insert(key, Arc::downgrade(&lock));
+    Ok(lock)
 }
 
 fn with_git_access<T>(lock: &RwLock<()>, action: &str, run: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
@@ -49,6 +92,26 @@ fn with_git_access<T>(lock: &RwLock<()>, action: &str, run: impl FnOnce() -> Res
 #[cfg(test)]
 mod access_tests {
     use super::*;
+    #[test]
+    fn independent_repositories_do_not_block_but_linked_worktrees_share_access() {
+        let one = tempfile::tempdir().unwrap();
+        let two = tempfile::tempdir().unwrap();
+        let linked = tempfile::tempdir().unwrap();
+        std::fs::create_dir(one.path().join(".git")).unwrap();
+        std::fs::create_dir(two.path().join(".git")).unwrap();
+        let metadata = one.path().join(".git/worktrees/linked");
+        std::fs::create_dir_all(&metadata).unwrap();
+        std::fs::write(metadata.join("commondir"), "../..").unwrap();
+        std::fs::write(linked.path().join(".git"), format!("gitdir: {}", metadata.display())).unwrap();
+        let locks = Mutex::new(HashMap::new());
+        let first = repository_lock(&locks, one.path().to_str().unwrap()).unwrap();
+        let same = repository_lock(&locks, linked.path().to_str().unwrap()).unwrap();
+        let other = repository_lock(&locks, two.path().to_str().unwrap()).unwrap();
+        assert!(Arc::ptr_eq(&first, &same));
+        let _reading = first.read().unwrap();
+        assert!(same.try_write().is_err());
+        assert!(other.try_write().is_ok());
+    }
     #[test]
     fn diffs_do_not_queue_behind_reads_but_mutations_stay_exclusive() {
         let lock = Arc::new(RwLock::new(()));

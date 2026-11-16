@@ -57,9 +57,12 @@ export function useWorkbench() {
     }
   }
   const diffCache = createDiffCache();
+  const diffClientId = crypto.randomUUID();
   const diffLoading = ref(false);
   const repositoryLoading = ref(false);
   let repositoryRequest = 0;
+  let metadataLoadedAt = 0;
+  let repositoryPersistence = Promise.resolve();
   const wholeFile = ref(false);
   let displayedDiffKey = "";
   let warmupGeneration = 0;
@@ -110,7 +113,7 @@ export function useWorkbench() {
   async function read<T>(action: string, extra: Partial<GitRequest> = {}) {
     return git<T>({ repo: repo.value, action, ...extra });
   }
-  async function loadDiff(background = false) {
+  async function loadDiff(background = false, conditional = background) {
     const request = ++diffGeneration;
     const file = selected.value;
     const key = JSON.stringify([repo.value, mode.value, base.value, file, wholeFile.value]);
@@ -131,15 +134,19 @@ export function useWorkbench() {
     }
     if (!background || switchedFile) diffLoading.value = !diffCache.get(key);
     try {
-      const next = await diffCache.load(key, () => read<Diff>("diff", {
-        path: file,
-        mode: mode.value,
-        target: base.value,
-        wholeFile: wholeFile.value,
-      }));
+      const cached = diffCache.get(key);
+      const next = await diffCache.load(key, async () => {
+        const result = await read<Diff & { unchanged?: boolean }>("diff", {
+          clientId: diffClientId, requestId: request,
+          path: file, mode: mode.value, target: base.value, wholeFile: wholeFile.value,
+          fingerprint: conditional && mode.value !== 'branch' ? cached?.fingerprint : undefined,
+        });
+        return result.unchanged && cached ? cached : result;
+      });
       if (request === diffGeneration && (next.text !== diff.value.text || next.fingerprint !== diff.value.fingerprint)) diff.value = next;
     } catch (e) {
       if (request === diffGeneration) {
+        if (String(e).includes('Diff request superseded')) { await loadDiff(background, conditional); return; }
         diff.value = { text: "", fingerprint: "" };
         error.value = String(e);
       }
@@ -152,6 +159,7 @@ export function useWorkbench() {
     const root = repo.value;
     const target = base.value;
     const full = wholeFile.value;
+    if (full) return;
     const files = [
       ...working.value.map((file) => ({ path: file.path, mode: "working" })),
       ...staged.value.map((file) => ({ path: file.path, mode: "staged" })),
@@ -162,7 +170,7 @@ export function useWorkbench() {
         const key = JSON.stringify([root, file.mode, target, file.path, full]);
         if (diffCache.get(key)) return;
         try {
-          await diffCache.load(key, () => git<Diff>({ repo: root, action: "diff", ...file, target, wholeFile: full }));
+          await diffCache.load(key, () => git<Diff>({ repo: root, action: "diff", ...file, target, wholeFile: full, limit: 512_000 }), true);
         } catch { /* The selected-file load reports errors; prefetch is optional. */ }
       }));
     }
@@ -172,9 +180,15 @@ export function useWorkbench() {
     const request = generation;
     polling = true;
     try {
-      const next = await read<Snapshot>("snapshot");
+      const metadataDue = full || !snapshot.value || Date.now() - metadataLoadedAt >= 15_000;
+      const lightweight = metadataDue ? undefined : await read<{ files: FileStatus[]; head: string }>('refresh');
+      if (request !== generation) return;
+      const reloadMetadata = metadataDue || lightweight!.head !== snapshot.value?.head;
+      const next = reloadMetadata ? await read<Snapshot>('snapshot') : { ...snapshot.value!, ...lightweight! };
+      if (reloadMetadata) metadataLoadedAt = Date.now();
       if (request !== generation) return;
       const changed = next.head !== snapshot.value?.head;
+      if (changed) diffCache.invalidate(key => JSON.parse(key)[0] === repo.value);
       if (JSON.stringify(next) !== JSON.stringify(snapshot.value)) snapshot.value = next;
       base.value = comparisonBase(next, base.value);
       if (mode.value === "branch" && base.value) {
@@ -186,7 +200,7 @@ export function useWorkbench() {
       }
       if (!currentFiles.value.some((f) => f.path === selected.value))
         selected.value = currentFiles.value[0]?.path || "";
-      const loading = loadDiff(true);
+      const loading = loadDiff(true, !reloadMetadata);
       void warmDiffs();
       await loading;
       if (full || changed) {
@@ -234,11 +248,11 @@ export function useWorkbench() {
       selectedCommit.value = undefined;
       historyDiff.value = "";
       diffGeneration++;
-      diffCache.clear();
       warmupGeneration++;
       repo.value = loaded.root;
       example.value = false;
       snapshot.value = loaded;
+      metadataLoadedAt = Date.now();
       commits.value = [];
       diff.value = { text: "", fingerprint: "" };
       view.value = "changes";
@@ -253,13 +267,14 @@ export function useWorkbench() {
         repositoryRoot,
         ...recent.value.filter((p) => normalize(p) !== normalize(repositoryRoot) && !worktreePaths.has(normalize(p))),
       ].slice(0, 12);
-      try {
-        await invoke("repositories_save", { repositories: recent.value });
+      const repositories = recent.value;
+      repositoryPersistence = repositoryPersistence.then(async () => {
+        await invoke("repositories_save", { repositories });
         const saved = await invoke<string[]>("repositories_load");
         if (request === repositoryRequest) recent.value = saved;
-      } catch (e) {
+      }).catch((e) => {
         if (request === repositoryRequest) error.value = `Repository opened, but history could not be saved: ${e}`;
-      }
+      });
     } catch (e) {
       if (request === repositoryRequest) error.value = String(e);
     } finally {
@@ -302,7 +317,7 @@ export function useWorkbench() {
       error.value = `Could not refresh changed files: ${e}`;
     }
   }
-  async function runMutation(operation: () => Promise<string>, indexOnly = false) {
+  async function runMutation(operation: () => Promise<string>, indexOnly = false, paths?: string[]) {
     if (example.value)
       throw new Error(
         "This is an example workspace. Open a real repository in the desktop app to make changes.",
@@ -312,7 +327,10 @@ export function useWorkbench() {
     busy.value = true;
     generation++;
     diffGeneration++;
-    diffCache.clear();
+    if (paths?.length) {
+      const changed = new Set(paths);
+      diffCache.invalidate(key => { const [root, , , path] = JSON.parse(key); return root === repo.value && changed.has(path); });
+    } else diffCache.clear();
     warmupGeneration++;
     error.value = "";
     notice.value = "";
@@ -331,30 +349,28 @@ export function useWorkbench() {
     }
   }
   async function mutate(action: string, extra: Partial<GitRequest> = {}) {
-    return runMutation(() => read<string>(action, extra), ['stage', 'unstage', 'patch'].includes(action));
+    return runMutation(() => read<string>(action, extra), ['stage', 'unstage', 'patch'].includes(action), ['stage', 'unstage', 'patch'].includes(action) && extra.path ? [extra.path] : undefined);
   }
   async function stageFiles(paths: string[], fileMode: string) {
     if (!paths.length || !['working', 'staged'].includes(fileMode)) return;
     const action = fileMode === 'staged' ? 'unstage' : 'stage';
-    const reviewed = new Map(paths.map(path => [path, diffCache.get(JSON.stringify([repo.value, fileMode, base.value, path, wholeFile.value]))]));
     return runMutation(async () => {
       if (paths.length > 1) {
         notice.value = `${action === 'stage' ? 'Staging' : 'Unstaging'} ${paths.length} files…`;
-        return read<string>(`${action}-files`, { files: paths.map(path => ({ path, fingerprint: reviewed.get(path)?.fingerprint })) });
+        return read<string>(`${action}-files`, { files: paths.map(path => ({ path })) });
       }
       let completed = 0;
       try {
         for (const path of paths) {
           notice.value = `${action === 'stage' ? 'Staging' : 'Unstaging'} ${completed + 1} of ${paths.length} files`;
-          const current = reviewed.get(path) || await read<Diff>('diff', { path, mode: fileMode });
-          await read<string>(action, { path, fingerprint: current.fingerprint });
+          await read<string>(action, { path });
           completed++;
         }
       } catch (e) {
         throw new Error(`${completed} of ${paths.length} files ${action === 'stage' ? 'staged' : 'unstaged'}. ${e}`);
       }
       return `${completed} files ${action === 'stage' ? 'staged' : 'unstaged'}`;
-    }, true);
+    }, true, paths);
   }
   async function selectCommit(commit: Commit) {
     selectedCommit.value = commit;

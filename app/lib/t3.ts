@@ -96,7 +96,7 @@ export class T3Client {
   get projection() { return this.projections.get(this.threadId); }
   status = "disconnected";
   error = "";
-  onChange: () => void = () => {};
+  onChange: (threadId?: string) => void = () => {};
   constructor(private ticket: () => Promise<string>) {}
   private send(value: Json) {
     if (this.socket?.readyState !== WebSocket.OPEN)
@@ -352,7 +352,7 @@ export class T3Client {
             for (const item of projection.turnItems || []) applyAssistantText(projection, item);
             this.projections.set(id, projection);
           }
-          this.onChange();
+          this.onChange(id);
         } else if (item.kind === "event") {
           const event = item.event;
           const p = this.projections.get(id);
@@ -393,7 +393,7 @@ export class T3Client {
             p.thread = normalizeThread(event.payload);
             this.threads = this.threads.map(thread => thread.id === p.thread.id ? p.thread : thread);
           }
-          this.onChange();
+          this.onChange(id);
         }
       },
     );
@@ -405,7 +405,7 @@ export class T3Client {
         this.status === "connected"
       ) {
         this.error = error.message;
-        this.onChange();
+        this.onChange(id);
       }
     });
   }

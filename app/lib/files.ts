@@ -23,16 +23,18 @@ export interface FileNode {
 
 export function fileTree(files: FileStatus[]): FileNode[] {
   const root: FileNode[] = [];
+  const nodesByPath = new Map<string, FileNode>();
   for (const file of files) {
     const parts = file.path.split("/");
     let children = root;
     let path = "";
     for (const [index, name] of parts.entries()) {
       path = path ? `${path}/${name}` : name;
-      let node = children.find((node) => node.path === path);
+      let node = nodesByPath.get(path);
       if (!node) {
         node = { name, path, children: [] };
         children.push(node);
+        nodesByPath.set(path, node);
       }
       if (index === parts.length - 1) node.file = file;
       children = node.children;

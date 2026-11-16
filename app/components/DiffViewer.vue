@@ -10,9 +10,9 @@ import {
   nextTick,
 } from "vue";
 import { Check, MessageSquarePlus, LoaderCircle } from "lucide-vue-next";
-import { parseDiffFiles, splitDiffLines, selectedPatch } from "~/lib/diff";
-import { diffWindow, type DiffChange } from "~/lib/diff-window";
 import { diffFileStatus } from "~/lib/diff-files";
+import { diffGeometry, diffViewport } from "~/lib/diff-geometry";
+import { createDiffSession, type DiffViewRequest } from "~/lib/diff-session";
 import type { DiffSyntax } from "~/lib/syntax";
 const props = defineProps<{
   text: string;
@@ -30,7 +30,7 @@ let syntaxRequest = 0;
 function highlight() {
   syntax.value = {};
   const id = ++syntaxRequest;
-  worker?.postMessage({ id, text: props.text, path: props.path || "" });
+  if (props.text.length <= 300_000) worker?.postMessage({ id, text: props.text, path: props.path || "" });
 }
 onMounted(() => {
   try {
@@ -118,15 +118,9 @@ onMounted(() => {
   if (scroller.value) resize.observe(scroller.value);
 });
 onUnmounted(() => resize?.disconnect());
-const parsed = computed(() => parseDiffFiles(props.text));
+const geometry = shallowRef(diffViewport(diffGeometry('', 'split', 23, 11), 0, 600, 23));
 const selectedFile = ref("");
-const navigationFiles = computed(() => parsed.value.flatMap(file => {
-  const status = diffFileStatus(file.header);
-  return status ? [status] : [];
-}));
-const displayed = computed(() => selectedFile.value
-  ? parsed.value.filter(file => diffFileStatus(file.header)?.path === selectedFile.value)
-  : parsed.value);
+const navigationFiles = computed(() => geometry.value.navigationFiles);
 watch(() => [props.path, props.mode], () => { selectedFile.value = ""; });
 watch(navigationFiles, (files) => {
   if (!files.some(file => file.path === selectedFile.value)) selectedFile.value = "";
@@ -188,90 +182,67 @@ watch(
   { immediate: true, flush: "post" },
 );
 onUnmounted(() => horizontalResize?.disconnect());
-// Wrapped rows have variable heights, so render them without fixed-height windowing.
-const large = computed(
-  () =>
-    !wrapLines.value &&
-    displayed.value.reduce(
-      (n, f) => n + f.hunks.reduce((n, h) => n + h.lines.length, 0),
-      0,
-    ) > 500,
-);
-const geometry = computed(() => {
-  let offset = 0,
-    width = 0;
-  const longest = { left: "", right: "" };
-  const changes: DiffChange[] = [];
-  const files = displayed.value.map((file) => {
-    if (displayed.value.length > 1) offset += 32;
-    if (layout.value === "split" && file.hunks.length) offset += 29;
-    const plainHeight =
-      (file.header || "No text changes to display.").split("\n").length * 20 +
-      24;
-    if (!file.hunks.length) offset += plainHeight;
-    const hunks = file.hunks.map((hunk) => {
-      offset += 50;
-      const top = offset;
-      const rows = layout.value === "split" ? splitDiffLines(hunk.lines) : [];
-      for (const row of rows)
-        for (const side of ["left", "right"] as const) {
-          const line = row[side];
-          const text = (
-            line?.kind === "meta" ? line.text : line?.text.slice(1) || ""
-          ).replace(/\t/g, "  ");
-          if (text.length > longest[side].length) longest[side] = text;
-        }
-      const lines =
-        layout.value === "split"
-          ? rows.map((row) => [row.left, row.right])
-          : hunk.lines.map((line) => [line]);
-      lines.forEach((pair, i) =>
-        pair.forEach((line) => {
-          if (!line) return;
-          width = Math.max(width, line.text.replace(/\t/g, "  ").length);
-          if (line.kind === "add" || line.kind === "delete")
-            changes.push({
-              offset: top + i * rowHeight.value,
-              height: rowHeight.value,
-              kind: line.kind,
-              line: String(line.next || line.old),
-            });
-        }),
-      );
-      offset += lines.length * rowHeight.value;
-      return { ...hunk, rows, top, count: lines.length };
-    });
-    return { ...file, hunks, plainHeight };
-  });
-  return {
-    files,
-    changes,
-    longest,
-    width: width * fontSize.value * 0.61 + 125,
-  };
-});
-const files = computed(() =>
-  geometry.value.files.map((file) => ({
-    ...file,
-    hunks: file.hunks.map((hunk) => {
-      const window = large.value
-        ? diffWindow(
-            hunk.count,
-            hunk.top,
-            scroll.value,
-            viewportHeight.value,
-            rowHeight.value,
-          )
-        : { start: 0, end: hunk.count, before: 0, after: 0 };
-      return {
-        ...hunk,
-        window,
-        visibleLines: hunk.lines.slice(window.start, window.end),
-        visibleRows: hunk.rows.slice(window.start, window.end),
+// The worker retains full lines and returns only the current viewport.
+const large = computed(() => geometry.value.large);
+let geometryWorker: Worker | undefined;
+let workerText = '';
+let localSession = createDiffSession();
+let viewRequest = 0, requestId = 0;
+let pendingPatch: { id: number; text: string; path?: string; mode: string } | undefined;
+const preparing = ref(false), patching = ref(false);
+function receiveGeometry(data: ReturnType<ReturnType<typeof createDiffSession>>) {
+  if (pendingPatch?.id === data.id) {
+    const current = pendingPatch;
+    pendingPatch = undefined;
+    patching.value = false;
+    if (current.text !== props.text || current.path !== props.path || current.mode !== props.mode) return;
+    if (data.error) error.value = data.error;
+    else if (data.patch) emit('patch', data.patch);
+    return;
+  }
+  if (data.id !== viewRequest) return;
+  if (data.view) {
+    geometry.value = data.view;
+    if (data.view.large) wrapLines.value = false;
+  }
+  if (data.error) error.value = data.error;
+  preparing.value = false;
+}
+function requestGeometry(rebuild = false) {
+  const text = props.text;
+  const request: DiffViewRequest = { id: ++requestId, layout: layout.value, rowHeight: rowHeight.value,
+    fontSize: fontSize.value, selectedFile: selectedFile.value, scroll: scroll.value, height: viewportHeight.value };
+  viewRequest = request.id;
+  if (rebuild) preparing.value = true;
+  if (text.length <= 300_000 || typeof Worker === 'undefined') {
+    if (geometryWorker) { geometryWorker.terminate(); geometryWorker = undefined; pendingPatch = undefined; patching.value = false; }
+    receiveGeometry(localSession({ ...request, text }));
+    return;
+  }
+  if (!geometryWorker || workerText !== text) {
+    geometryWorker?.terminate();
+    pendingPatch = undefined; patching.value = false;
+    localSession = createDiffSession();
+    workerText = text;
+    try {
+      const worker = new Worker(new URL('../lib/diff-geometry.worker.ts', import.meta.url), { type: 'module' });
+      geometryWorker = worker;
+      worker.onmessage = ({ data }) => { if (geometryWorker === worker) receiveGeometry(data); };
+      worker.onerror = () => {
+        if (geometryWorker !== worker) return;
+        worker.terminate(); geometryWorker = undefined;
+        pendingPatch = undefined; patching.value = false;
+        receiveGeometry(localSession({ ...request, id: viewRequest, text, layout: layout.value, rowHeight: rowHeight.value, fontSize: fontSize.value, selectedFile: selectedFile.value, scroll: scroll.value, height: viewportHeight.value }));
       };
-    }),
-  })),
-);
+      request.text = text;
+    } catch { geometryWorker = undefined; receiveGeometry(localSession({ ...request, text })); return; }
+  }
+  geometryWorker.postMessage(request);
+}
+watch(() => [props.text, layout.value, rowHeight.value, fontSize.value, selectedFile.value], () => requestGeometry(true), { immediate: true });
+watch([scroll, viewportHeight], () => requestGeometry());
+onUnmounted(() => geometryWorker?.terminate());
+const files = computed(() => geometry.value.files);
 let jumpToChangePending = false;
 watch(
   () =>
@@ -281,6 +252,7 @@ watch(
       props.wholeFile,
       props.text,
       props.loading,
+      preparing.value,
     ] as const,
   async (current, previous) => {
     if (
@@ -288,7 +260,7 @@ watch(
       current.slice(0, 3).some((value, i) => value !== previous[i])
     )
       jumpToChangePending = !!props.wholeFile;
-    if (!jumpToChangePending || props.loading || !props.text) return;
+    if (!jumpToChangePending || props.loading || preparing.value || !props.text) return;
     await nextTick();
     const el = scroller.value;
     if (!jumpToChangePending || !props.wholeFile || props.loading || !el)
@@ -327,21 +299,16 @@ function toggle(index: number) {
   next.has(index) ? next.delete(index) : next.add(index);
   selected.value = next;
 }
-function stage(indices?: number[]) {
-  try {
-    emit(
-      "patch",
-      selectedPatch(
-        props.text,
-        indices ? new Set(indices) : selected.value,
-        props.mode === "staged",
-      ),
-    );
-    error.value = "";
-  } catch (e) {
-    error.value = String(e);
-  }
+function stage(indices?: number[], hunkStart?: number) {
+  if (preparing.value || patching.value) return;
+  error.value = '';
+  const request = { id: ++requestId, patch: true as const, indices: indices || [...selected.value], hunkStart, reverse: props.mode === 'staged' };
+  pendingPatch = { id: request.id, text: props.text, mode: props.mode, path: props.path };
+  patching.value = true;
+  if (geometryWorker) geometryWorker.postMessage(request);
+  else receiveGeometry(localSession(request));
 }
+
 function context() {
   const lines = props.text.split("\n");
   emit(
@@ -367,7 +334,7 @@ function context() {
     :class="{
       'side-by-side': layout === 'split',
       'large-diff': large,
-      'wrap-lines': wrapLines,
+      'wrap-lines': wrapLines && !large,
     }"
   >
     <div
@@ -390,7 +357,9 @@ function context() {
       </div>
       <AppButton
         class="small wrap-toggle text-[11px] py-[4px] px-[7px] [border-color:#30343f] rounded-[4px] [&[aria-pressed='true']]:bg-[#2a3244] [&[aria-pressed='true']]:text-[#c1cfff]"
-        :aria-pressed="wrapLines"
+        :aria-pressed="wrapLines && !large"
+        :disabled="large"
+        :title="large ? 'Wrapping is unavailable for large diffs' : undefined"
         @click="wrapLines = !wrapLines"
       >
         Wrap lines
@@ -432,10 +401,10 @@ function context() {
       </div>
       <LoaderCircle
         class="spin diff-loading animate-spin [visibility:hidden] shrink-0 [&.visible]:[visibility:visible]"
-        :class="{ visible: loading }"
+        :class="{ visible: loading || patching }"
         :size="13"
-        :aria-hidden="!loading"
-        aria-label="Refreshing diff"
+        :aria-hidden="!loading && !patching"
+        :aria-label="patching ? 'Preparing selected changes' : 'Refreshing diff'"
       />
       <span>{{
         selected.size
@@ -445,7 +414,7 @@ function context() {
       ><AppButton
         v-if="editable && selected.size"
         class="small text-[11px] py-[4px] px-[7px] [border-color:#30343f] rounded-[4px]"
-        :disabled="disabled || loading"
+        :disabled="disabled || loading || patching"
         @click="stage()"
       >
         <Check :size="13" />{{
@@ -469,7 +438,7 @@ function context() {
       <DiffFileNavigator v-if="navigationFiles.length > 1" :files="navigationFiles" :selected="selectedFile" @select="selectedFile = $event" />
       <div class="diff-main flex flex-col flex-1 min-w-0 min-h-0 relative">
         <div
-          v-if="loading && !text"
+          v-if="preparing || (loading && !text)"
           class="diff-pending absolute inset-0 z-[1] flex flex-col items-center justify-center gap-[10px] bg-[#171c26] text-[#96a3ba] pointer-events-none"
           role="status"
         >
@@ -484,6 +453,7 @@ function context() {
           @scroll="onScroll"
         >
           <div
+            v-if="!preparing"
             class="diff-content"
             :style="
               large && layout !== 'split'
@@ -519,16 +489,8 @@ function context() {
                   ><AppButton
                     v-if="editable"
                     class="small text-[11px] py-[4px] px-[7px] [border-color:#30343f] rounded-[4px]"
-                    :disabled="disabled || loading"
-                    @click="
-                      stage(
-                        hunk.lines
-                          .filter(
-                            (l) => l.kind === 'add' || l.kind === 'delete',
-                          )
-                          .map((l) => l.index),
-                      )
-                    "
+                    :disabled="disabled || loading || patching"
+                    @click="stage(undefined, hunk.start)"
                   >
                     {{ mode === "staged" ? "Unstage" : "Stage" }} hunk
                   </AppButton>

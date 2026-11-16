@@ -38,3 +38,12 @@ export function chatActivity(projection: T3Projection) {
     response: last ? `${last.id}:${last.updatedAt || last.createdAt}:${last.text.length}:${last.streaming}` : '',
   };
 }
+
+export function updateChatActivities(states: Map<string, ReturnType<typeof chatActivity>>, projections: Map<string, T3Projection>, changedIds: Iterable<string>) {
+  for (const id of states.keys()) if (!projections.has(id)) states.delete(id);
+  for (const id of changedIds) {
+    const projection = projections.get(id);
+    if (projection) states.set(id, chatActivity(projection));
+  }
+  return Object.fromEntries(states);
+}

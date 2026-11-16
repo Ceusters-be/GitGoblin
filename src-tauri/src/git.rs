@@ -39,6 +39,10 @@ pub struct Request {
     pub limit: Option<usize>,
     #[serde(default)]
     pub files: Vec<BulkFile>,
+    #[serde(default)]
+    pub client_id: String,
+    #[serde(default)]
+    pub request_id: u64,
 }
 
 #[derive(Serialize)]
@@ -277,7 +281,7 @@ fn history(repo: &Path, path: &str, search: &str, offset: usize, limit: Option<u
 }
 
 pub fn is_read_only(action: &str) -> bool {
-    matches!(action, "discard-plan" | "snapshot" | "status" | "history" | "diff" | "branch-files" | "commit-diff"
+    matches!(action, "discard-plan" | "snapshot" | "status" | "refresh" | "history" | "diff" | "branch-files" | "commit-diff"
         | "commit-message" | "reflog" | "blame" | "conflict" | "rebase-plan")
 }
 
@@ -296,6 +300,11 @@ pub fn main_repository(path: &str) -> Result<String, String> {
 }
 
 pub fn execute(req: Request) -> Result<Value, String> {
+    execute_checked(req, || Ok(()))
+}
+
+pub fn execute_checked(req: Request, check: impl Fn() -> Result<(), String>) -> Result<Value, String> {
+    check()?;
     let repo = root(&req.repo)?;
     let value = match req.action.as_str() {
         "discard-plan" | "discard-files" => {
@@ -336,9 +345,11 @@ pub fn execute(req: Request) -> Result<Value, String> {
             json!(format!("{} files {}", req.files.len(), if stage { "staged" } else { "unstaged" }))
         }
         "status" => json!(status(&repo)?),
+        "refresh" => json!({"files":status(&repo)?, "head":git(&repo, &["rev-parse", "--verify", "HEAD"]).unwrap_or_default().trim()}),
         "snapshot" => {
-            let files = status(&repo)?;
-            let refs = git(
+            let (files, refs, branch, worktrees, gitdir, stashes, remotes, head) = std::thread::scope(|scope| -> Result<_, String> {
+                let files = scope.spawn(|| status(&repo));
+                let refs = scope.spawn(|| git(
                 &repo,
                 &[
                     "for-each-ref",
@@ -347,7 +358,19 @@ pub fn execute(req: Request) -> Result<Value, String> {
                     "refs/remotes",
                     "refs/tags",
                 ],
-            )?;
+                ));
+                let branch = scope.spawn(|| git(&repo, &["symbolic-ref", "--quiet", "--short", "HEAD"]).unwrap_or_else(|_| "Detached HEAD".into()));
+                let trees = scope.spawn(|| worktrees(&repo));
+                let gitdir = scope.spawn(|| git(&repo, &["rev-parse", "--absolute-git-dir"]));
+                let stashes = scope.spawn(|| git(&repo, &["stash", "list", "--format=%gd%x09%s"]));
+                let remotes = scope.spawn(|| git(&repo, &["remote", "-v"]));
+                let head = scope.spawn(|| git(&repo, &["rev-parse", "--verify", "HEAD"]).unwrap_or_default());
+                let failed = |_| "Repository metadata worker failed".to_string();
+                Ok((files.join().map_err(failed)??, refs.join().map_err(failed)??,
+                    branch.join().map_err(failed)?, trees.join().map_err(failed)??,
+                    gitdir.join().map_err(failed)??, stashes.join().map_err(failed)??,
+                    remotes.join().map_err(failed)??, head.join().map_err(failed)?))
+            })?;
             let refs: Vec<_> = refs
                 .lines()
                 .filter_map(|line| {
@@ -358,11 +381,7 @@ pub fn execute(req: Request) -> Result<Value, String> {
                         "ahead":count("ahead "),"behind":count("behind "),"upstreamGone":f[4]=="gone"}))
                 })
                 .collect();
-            let branch = git(&repo, &["symbolic-ref", "--quiet", "--short", "HEAD"])
-                .unwrap_or_else(|_| "Detached HEAD".into());
-            let worktrees = worktrees(&repo)?;
             let repository_root = worktrees.first().and_then(|tree| tree["path"].as_str()).unwrap_or(&req.repo);
-            let gitdir = git(&repo, &["rev-parse", "--absolute-git-dir"])?;
             let gitdir = Path::new(gitdir.trim());
             let operation =
                 if gitdir.join("rebase-merge").exists() || gitdir.join("rebase-apply").exists() {
@@ -376,14 +395,22 @@ pub fn execute(req: Request) -> Result<Value, String> {
                 } else {
                     ""
                 };
-            let stashes = git(&repo, &["stash", "list", "--format=%gd%x09%s"])?;
-            let remotes = git(&repo, &["remote", "-v"])?;
-            json!({"root":repo.to_string_lossy().trim_start_matches("\\\\?\\"),"repositoryRoot":repository_root,"branch":branch.trim(),"files":files,"refs":refs,"worktrees":worktrees,"operation":operation,"stashes":stashes,"remotes":remotes,"head":git(&repo,&["rev-parse","--verify","HEAD"]).unwrap_or_default().trim()})
+            json!({"root":repo.to_string_lossy().trim_start_matches("\\\\?\\"),"repositoryRoot":repository_root,"branch":branch.trim(),"files":files,"refs":refs,"worktrees":worktrees,"operation":operation,"stashes":stashes,"remotes":remotes,"head":head.trim()})
         }
         "history" => history(&repo, &req.path, &req.text, req.offset, req.limit, &req.target, &req.mode)?,
         "diff" => {
+            check()?;
             relative(&req.path)?;
+            if let Some(limit) = req.limit {
+                if fs::symlink_metadata(repo.join(&req.path)).map(|meta| meta.len() > limit as u64).unwrap_or(false) {
+                    return Err("File exceeds the background preview limit.".into());
+                }
+            }
             let before = fingerprint(&repo, &req.path)?;
+            check()?;
+            if req.mode != "branch" && !req.fingerprint.is_empty() && req.fingerprint == before {
+                return Ok(json!({"text":"", "fingerprint":before, "unchanged":true}));
+            }
             let mut args = vec![
                 "diff",
                 "--no-ext-diff",
@@ -405,6 +432,7 @@ pub fn execute(req: Request) -> Result<Value, String> {
             }
             args.extend(["--", &req.path]);
             let mut diff = git(&repo, &args)?;
+            check()?;
             if diff.is_empty()
                 && req.mode == "working"
                 && git(&repo, &["ls-files", "--error-unmatch", "--", &req.path]).is_err()
@@ -424,6 +452,10 @@ pub fn execute(req: Request) -> Result<Value, String> {
                         }
                     }
                 }
+            }
+            check()?;
+            if req.limit.is_some_and(|limit| diff.len() > limit) {
+                return Err("Diff exceeds the background preview limit.".into());
             }
             if before != fingerprint(&repo, &req.path)? {
                 return Err(
@@ -465,67 +497,7 @@ pub fn execute(req: Request) -> Result<Value, String> {
             json!(git(&repo, &["show", "-s", "--format=%B", &target])?)
         }
         "stage" | "unstage" => {
-            check_fingerprint(&repo, &req)?;
-            if req.action == "stage" {
-                // Stage the reviewed bytes, not a later version an agent may write
-                // between the fingerprint check and Git opening the file.
-                let content = file_content(&repo, &req.path)?;
-                if fingerprint_content(&repo, &req.path, content.as_deref())? != req.fingerprint {
-                    return Err("The file changed. Refresh before staging.".into());
-                }
-                if let Some(content) = content {
-                    let index = git(&repo, &["ls-files", "--stage", "--", &req.path])?;
-                    if index.is_empty()
-                        && git(&repo, &["check-ignore", "--quiet", "--", &req.path]).is_ok()
-                    {
-                        return Err("This file is ignored by Git.".into());
-                    }
-                    let meta =
-                        fs::symlink_metadata(repo.join(&req.path)).map_err(|e| e.to_string())?;
-                    let mut mode = if meta.is_symlink() {
-                        "120000"
-                    } else if index.starts_with("100755") {
-                        "100755"
-                    } else {
-                        "100644"
-                    };
-                    #[cfg(unix)]
-                    {
-                        use std::os::unix::fs::PermissionsExt;
-                        if !meta.is_symlink() {
-                            mode = if meta.permissions().mode() & 0o111 != 0 {
-                                "100755"
-                            } else {
-                                "100644"
-                            };
-                        }
-                    }
-                    let hash_args = if meta.is_symlink() {
-                        vec!["hash-object", "-w", "--stdin"]
-                    } else {
-                        vec!["hash-object", "-w", "--stdin", "--path", &req.path]
-                    };
-                    let blob = bytes(&repo, &hash_args, Some(&content))?;
-                    let blob = String::from_utf8_lossy(&blob);
-                    git(
-                        &repo,
-                        &[
-                            "update-index",
-                            "--add",
-                            "--cacheinfo",
-                            mode,
-                            blob.trim(),
-                            &req.path,
-                        ],
-                    )?;
-                } else {
-                    git(&repo, &["update-index", "--force-remove", "--", &req.path])?;
-                }
-            } else if git(&repo, &["rev-parse", "--verify", "HEAD"]).is_ok() {
-                git(&repo, &["restore", "--staged", "--", &req.path])?;
-            } else {
-                git(&repo, &["rm", "--cached", "--", &req.path])?;
-            }
+            bulk::update(&repo, &[BulkFile { path: req.path.clone(), fingerprint: String::new() }], req.action == "stage")?;
             json!("Index updated")
         }
         "patch" => {
@@ -884,6 +856,111 @@ pub fn execute(req: Request) -> Result<Value, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    #[ignore = "manual performance measurement with isolated repositories"]
+    fn performance_large_workloads() {
+        for count in [598, 5000] {
+            let dir = fixture();
+            let repo = dir.path();
+            let files: Vec<_> = (0..count).map(|i| {
+                let path = format!("folder-{}/file-{i}.txt", i / 100);
+                fs::create_dir_all(repo.join(&path).parent().unwrap()).unwrap();
+                fs::write(repo.join(&path), "content\n").unwrap();
+                BulkFile { path, fingerprint: String::new() }
+            }).collect();
+            for action in ["snapshot", "stage-files", "status", "unstage-files"] {
+                let mut req = request(repo, action);
+                req.files = files.iter().map(|f| BulkFile { path: f.path.clone(), fingerprint: String::new() }).collect();
+                let start = std::time::Instant::now();
+                let result = execute(req).unwrap();
+                println!("PERF {count} files {action}: {:.1} ms", start.elapsed().as_secs_f64() * 1000.0);
+                if action == "status" { assert_eq!(result.as_array().unwrap().len(), count); }
+            }
+            assert!(git(repo, &["ls-files"]).unwrap().is_empty());
+            let start = std::time::Instant::now();
+            git(repo, &["add", "-A"]).unwrap();
+            println!("PERF {count} files direct git add baseline: {:.1} ms", start.elapsed().as_secs_f64() * 1000.0);
+            assert_eq!(git(repo, &["ls-files"]).unwrap().lines().count(), count);
+        }
+        let dir = fixture();
+        let repo = dir.path();
+        let content = "a line of generated text with enough content for testing\n".repeat(400_000);
+        fs::write(repo.join("large.txt"), &content).unwrap();
+        let mut diff = request(repo, "diff");
+        diff.path = "large.txt".into();
+        diff.mode = "working".into();
+        let start = std::time::Instant::now();
+        let result = execute(diff).unwrap();
+        println!("PERF {} bytes untracked diff: {:.1} ms; payload {} bytes", content.len(), start.elapsed().as_secs_f64() * 1000.0, result["text"].as_str().unwrap().len());
+        let mut revalidate = request(repo, "diff");
+        revalidate.path = "large.txt".into();
+        revalidate.mode = "working".into();
+        revalidate.fingerprint = result["fingerprint"].as_str().unwrap().into();
+        let start = std::time::Instant::now();
+        let unchanged = execute(revalidate).unwrap();
+        println!("PERF unchanged large diff: {:.1} ms; response {} bytes", start.elapsed().as_secs_f64() * 1000.0, unchanged.to_string().len());
+        assert_eq!(unchanged["unchanged"], true);
+        let mut stage = request(repo, "stage");
+        stage.path = "large.txt".into();
+        stage.fingerprint = result["fingerprint"].as_str().unwrap().into();
+        let start = std::time::Instant::now();
+        execute(stage).unwrap();
+        println!("PERF large file stage: {:.1} ms", start.elapsed().as_secs_f64() * 1000.0);
+        assert_eq!(bytes(repo, &["show", ":large.txt"], None).unwrap(), content.as_bytes());
+    }
+
+    #[test]
+    fn background_diff_limits_do_not_restrict_explicit_file_reads() {
+        let dir = fixture();
+        fs::write(dir.path().join("large.txt"), "content\n".repeat(1000)).unwrap();
+        let mut req = request(dir.path(), "diff");
+        req.path = "large.txt".into();
+        req.mode = "working".into();
+        req.limit = Some(512);
+        assert!(execute(req).unwrap_err().contains("background preview limit"));
+        let mut req = request(dir.path(), "diff");
+        req.path = "large.txt".into();
+        req.mode = "working".into();
+        let result = execute(req).unwrap();
+        assert!(result["text"].as_str().unwrap().contains("+content"));
+        assert!(!result["fingerprint"].as_str().unwrap().is_empty());
+    }
+
+    #[test]
+    fn conditional_diff_checks_content_even_when_file_size_is_unchanged() {
+        let dir = fixture();
+        fs::write(dir.path().join("file.txt"), "first\n").unwrap();
+        let mut req = request(dir.path(), "diff");
+        req.path = "file.txt".into(); req.mode = "working".into();
+        let initial = execute(req).unwrap();
+        let load = || {
+            let mut req = request(dir.path(), "diff");
+            req.path = "file.txt".into(); req.mode = "working".into();
+            req.fingerprint = initial["fingerprint"].as_str().unwrap().into();
+            execute(req).unwrap()
+        };
+        assert_eq!(load()["unchanged"], true);
+        fs::write(dir.path().join("file.txt"), "other\n").unwrap();
+        let changed = load();
+        assert_ne!(changed["unchanged"], true);
+        assert!(changed["text"].as_str().unwrap().contains("+other"));
+    }
+
+    #[test]
+    fn superseded_diffs_stop_between_read_steps() {
+        let dir = fixture();
+        fs::write(dir.path().join("file.txt"), "content\n").unwrap();
+        let calls = std::cell::Cell::new(0);
+        let mut req = request(dir.path(), "diff");
+        req.path = "file.txt".into(); req.mode = "working".into();
+        let result = execute_checked(req, || {
+            calls.set(calls.get() + 1);
+            if calls.get() == 3 { Err("Diff request superseded".into()) } else { Ok(()) }
+        });
+        assert_eq!(result.unwrap_err(), "Diff request superseded");
+        assert_eq!(calls.get(), 3);
+    }
+
     fn fixture() -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         git(dir.path(), &["init"]).unwrap();
@@ -915,6 +992,8 @@ mod tests {
             offset: 0,
             limit: None,
             files: Vec::new(),
+            client_id: String::new(),
+            request_id: 0,
         }
     }
     #[test]
@@ -1340,7 +1419,7 @@ mod tests {
         assert!(execute(req).unwrap_err().contains("Cannot resolve commit or branch 'missing-branch'"));
     }
     #[test]
-    fn status_preserves_unusual_names_and_stale_stage_fails() {
+    fn staging_uses_current_content_even_after_review() {
         let dir = fixture();
         let path = "a file [1].txt";
         fs::write(dir.path().join(path), "one\n").unwrap();
@@ -1350,8 +1429,8 @@ mod tests {
         req.path = path.into();
         req.fingerprint = fingerprint(dir.path(), path).unwrap();
         fs::write(dir.path().join(path), "two\n").unwrap();
-        assert!(execute(req).unwrap_err().contains("changed"));
-        assert!(git(dir.path(), &["diff", "--cached"]).unwrap().is_empty());
+        execute(req).unwrap();
+        assert_eq!(git(dir.path(), &["show", ":a file [1].txt"]).unwrap(), "two\n");
     }
     #[test]
     fn rebases_current_branch_onto_local_and_remote_branches() {
@@ -1527,17 +1606,17 @@ mod tests {
     }
 
     #[test]
-    fn bulk_rejects_stale_files_and_preserves_existing_locks_without_partial_staging() {
+    fn bulk_stages_current_files_and_preserves_existing_locks() {
         let dir = fixture();
         let repo = dir.path();
         git(repo, &["commit", "--allow-empty", "-m", "initial"]).unwrap();
         fs::write(repo.join("first.txt"), "first\n").unwrap();
         fs::write(repo.join("second.txt"), "second\n").unwrap();
         let files: Vec<_> = ["first.txt", "second.txt"].iter().map(|path| BulkFile { path: (*path).into(), fingerprint: fingerprint(repo, path).unwrap() }).collect();
-        let index = fs::read(repo.join(".git/index")).unwrap();
         fs::write(repo.join("second.txt"), "agent edit\n").unwrap();
-        assert!(bulk::update(repo, &files, true).unwrap_err().contains("changed since review"));
-        assert_eq!(fs::read(repo.join(".git/index")).unwrap(), index);
+        bulk::update(repo, &files, true).unwrap();
+        assert_eq!(git(repo, &["show", ":second.txt"]).unwrap(), "agent edit\n");
+        let index = fs::read(repo.join(".git/index")).unwrap();
         assert!(!repo.join(".git/index.lock").exists());
         fs::write(repo.join(".git/index.lock"), "another process owns this").unwrap();
         assert!(bulk::update(repo, &files, true).unwrap_err().contains("index is busy"));
@@ -1564,17 +1643,17 @@ mod tests {
     }
 
     #[test]
-    fn bulk_stages_captured_bytes_even_if_a_clean_filter_edits_the_live_file() {
+    fn bulk_runs_clean_filters_in_the_original_worktree() {
         let dir = fixture();
         let repo = dir.path();
-        let original = repo.join("file.txt").to_string_lossy().replace('\\', "/").replace('\'', "'\\''");
-        git(repo, &["config", "filter.test.clean", &format!("printf 'later edit\\n' > '{original}'; cat")]).unwrap();
+        fs::write(repo.join("filter-context"), "from original worktree\n").unwrap();
+        git(repo, &["config", "filter.test.clean", "cat filter-context; cat"]).unwrap();
         fs::write(repo.join(".gitattributes"), "*.txt filter=test\n").unwrap();
         fs::write(repo.join("file.txt"), "captured\n").unwrap();
         let files: Vec<_> = [".gitattributes", "file.txt"].iter().map(|path| BulkFile { path: (*path).into(), fingerprint: String::new() }).collect();
         bulk::update(repo, &files, true).unwrap();
-        assert_eq!(git(repo, &["show", ":file.txt"]).unwrap(), "captured\n");
-        assert_eq!(fs::read_to_string(repo.join("file.txt")).unwrap(), "later edit\n");
+        assert_eq!(git(repo, &["show", ":file.txt"]).unwrap(), "from original worktree\ncaptured\n");
+        assert_eq!(fs::read_to_string(repo.join("file.txt")).unwrap(), "captured\n");
     }
 
     #[test]

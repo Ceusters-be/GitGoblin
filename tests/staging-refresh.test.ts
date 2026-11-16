@@ -28,7 +28,22 @@ it.each(['working', 'staged'])('updates %s file lists without waiting for metada
   expect(w.snapshot.value.files).toEqual([]);
   expect(w.busy.value).toBe(false);
   expect(vi.mocked(git).mock.calls.map(([request]) => request.action)).toEqual([mode === 'staged' ? 'unstage' : 'stage', 'status']);
-  expect(vi.mocked(git).mock.calls[0]![0].fingerprint).toBe('reviewed');
+  expect(vi.mocked(git).mock.calls[0]![0].fingerprint).toBeUndefined();
+  scope.stop();
+});
+
+it.each(['working', 'staged'])('updates an unreviewed %s file without loading its diff first', async mode => {
+  vi.mocked(git).mockImplementation(async request => {
+    if (request.action === 'diff') throw new Error('Staging must not load a diff');
+    return request.action === 'status' ? [] : 'Index updated';
+  });
+  const scope = effectScope();
+  const w = scope.run(() => useWorkbench())!;
+  w.repo.value = demoSnapshot.root;
+  w.snapshot.value = { ...demoSnapshot, files: [] };
+  vi.mocked(git).mockClear();
+  await w.stageFiles(['unreviewed.txt'], mode);
+  expect(vi.mocked(git).mock.calls.map(([request]) => request.action)).toEqual([mode === 'staged' ? 'unstage' : 'stage', 'status']);
   scope.stop();
 });
 
@@ -58,7 +73,7 @@ it('makes the next staging action available while the next file diff is still lo
 
 it('refreshes the list after a partial failure without hiding the failure', async () => {
   vi.mocked(git).mockImplementation(async request => {
-    if (request.action === 'stage') throw new Error('File changed since review');
+    if (request.action === 'stage') throw new Error('Git index is locked');
     if (request.action === 'status') return [];
     return { text: '+reviewed', fingerprint: 'reviewed' };
   });
@@ -67,7 +82,7 @@ it('refreshes the list after a partial failure without hiding the failure', asyn
   w.repo.value = demoSnapshot.root;
   w.snapshot.value = { ...demoSnapshot, files: [] };
   await expect(w.stageFiles(['file.txt'], 'working')).rejects.toThrow('0 of 1 files staged');
-  expect(w.error.value).toContain('File changed since review');
+  expect(w.error.value).toContain('Git index is locked');
   expect(w.busy.value).toBe(false);
   expect(vi.mocked(git).mock.lastCall?.[0].action).toBe('status');
   scope.stop();
