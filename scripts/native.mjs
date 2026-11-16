@@ -1,6 +1,6 @@
 import { homedir } from "node:os";
 import { join, delimiter } from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import cli from "@tauri-apps/cli";
 
@@ -11,7 +11,15 @@ const pathKey =
   "PATH";
 if (existsSync(cargoBin))
   process.env[pathKey] = cargoBin + delimiter + (process.env[pathKey] || "");
-const [action, ...args] = process.argv.slice(2);
+const [action = "dev", ...args] = process.argv.slice(2);
+if (action === "dev") {
+  const config = JSON.parse(readFileSync(new URL("../src-tauri/tauri.conf.json", import.meta.url), "utf8"));
+  const productName = "GitGoblin (development)";
+  args.unshift("--config", JSON.stringify({
+    productName,
+    app: { windows: config.app.windows.map(window => ({ ...window, title: productName })) },
+  }));
+}
 if (action === "test") {
   const result = spawnSync(
     "cargo",
@@ -21,5 +29,5 @@ if (action === "test") {
   if (result.error) console.error(result.error.message);
   process.exitCode = result.status ?? 1;
 } else {
-  await cli.run([action || "dev", ...args], "gitgoblin");
+  await cli.run([action, ...args], "gitgoblin");
 }

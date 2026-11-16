@@ -13,6 +13,8 @@ npm run desktop
 
 `npm run dev` opens the UI in a browser; native filesystem and Git commands require the desktop app. The browser offers an explicitly labeled example workspace for UI review.
 
+`npm run desktop` launches **GitGoblin (development)** from this checkout. UI edits reload live; Rust edits rebuild and restart the desktop app automatically. Keep the dev process running while using it. A Windows shortcut can run this command from the repository folder; launching the installed release still opens the packaged version. Development and release builds share saved repositories and pairing.
+
 ```sh
 npm run typecheck
 npm run test
