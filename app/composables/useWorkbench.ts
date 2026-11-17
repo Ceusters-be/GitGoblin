@@ -83,14 +83,28 @@ export function useWorkbench() {
     generation = 0,
     diffGeneration = 0,
     polling = false;
+  const pendingStages = ref<{ paths: Set<string>; stage: boolean }[]>([]);
+  const staging = computed(() => pendingStages.value.length > 0);
+  let stageQueue = Promise.resolve();
+  const visibleFiles = computed(() => {
+    let files = snapshot.value?.files || [];
+    for (const pending of pendingStages.value) {
+      files = files.map(file => {
+        if (!pending.paths.has(file.path) || file.conflict) return file;
+        if (pending.stage) return { ...file, index: file.worktree === '?' ? 'A' : file.worktree === ' ' ? file.index : file.worktree, worktree: ' ' };
+        return { ...file, index: ' ', worktree: file.index === 'A' ? '?' : file.worktree === ' ' ? file.index : file.worktree };
+      });
+    }
+    return files;
+  });
   const working = computed(
     () =>
-      snapshot.value?.files.filter((f) => f.worktree !== " " || f.conflict) ||
+      visibleFiles.value.filter((f) => f.worktree !== " " || f.conflict) ||
       [],
   );
   const staged = computed(
     () =>
-      snapshot.value?.files.filter(
+      visibleFiles.value.filter(
         (f) => f.index !== " " && f.index !== "?" && !f.conflict,
       ) || [],
   );
@@ -320,28 +334,50 @@ export function useWorkbench() {
     }
   }
   async function mutate(action: string, extra: Partial<GitRequest> = {}) {
+    if ((action === 'stage' || action === 'unstage') && extra.path)
+      return stageFiles([extra.path], action === 'stage' ? 'working' : 'staged');
     return runMutation(() => read<string>(action, extra), ['stage', 'unstage', 'patch'].includes(action), ['stage', 'unstage', 'patch'].includes(action) && extra.path ? [extra.path] : undefined);
   }
   async function stageFiles(paths: string[], fileMode: string) {
     if (!paths.length || !['working', 'staged'].includes(fileMode)) return;
     const action = fileMode === 'staged' ? 'unstage' : 'stage';
-    return runMutation(async () => {
-      if (paths.length > 1) {
-        notice.value = `${action === 'stage' ? 'Staging' : 'Unstaging'} ${paths.length} files…`;
-        return read<string>(`${action}-files`, { files: paths.map(path => ({ path })) });
-      }
-      let completed = 0;
+    if (example.value) throw new Error("This is an example workspace. Open a real repository in the desktop app to make changes.");
+    if (busy.value && !staging.value) throw new Error("Wait for the current Git operation to finish.");
+    if (!staging.value) error.value = "";
+    const pending = { paths: new Set(paths), stage: action === 'stage' };
+    pendingStages.value.push(pending);
+    busy.value = true;
+    generation++;
+    diffGeneration++;
+    diffCache.invalidate(key => { const [root, , , path] = JSON.parse(key); return root === repo.value && pending.paths.has(path); });
+    const operation = stageQueue.then(async () => {
+      notice.value = `${action === 'stage' ? 'Staging' : 'Unstaging'} ${paths.length} files...`;
       try {
-        for (const path of paths) {
-          notice.value = `${action === 'stage' ? 'Staging' : 'Unstaging'} ${completed + 1} of ${paths.length} files`;
-          await read<string>(action, { path });
-          completed++;
-        }
+        const out = await read<string>(paths.length > 1 ? `${action}-files` : action,
+          paths.length > 1 ? { files: paths.map(path => ({ path })) } : { path: paths[0] });
+        notice.value = out?.trim() || "Done";
+        return out;
       } catch (e) {
-        throw new Error(`${completed} of ${paths.length} files ${action === 'stage' ? 'staged' : 'unstaged'}. ${e}`);
+        const failure = paths.length === 1 ? new Error(`0 of 1 files ${action === 'stage' ? 'staged' : 'unstaged'}. ${e}`) : e;
+        error.value = String(failure);
+        throw failure;
+      } finally {
+        // Keep later queued moves visible while reconciling this write with Git.
+        try {
+          const files = await read<FileStatus[]>('status');
+          if (snapshot.value) snapshot.value = { ...snapshot.value, files };
+        } catch (e) {
+          error.value += ` Could not refresh changed files: ${e}`;
+        }
+        pendingStages.value.shift();
+        busy.value = staging.value;
+        if (!currentFiles.value.some(file => file.path === selected.value))
+          selected.value = currentFiles.value[0]?.path || '';
+        if (!staging.value) void loadDiff(true);
       }
-      return `${completed} files ${action === 'stage' ? 'staged' : 'unstaged'}`;
-    }, true, paths);
+    });
+    stageQueue = operation.then(() => {}, () => {});
+    return operation;
   }
   async function selectCommit(commit: Commit) {
     selectedCommit.value = commit;
@@ -542,6 +578,7 @@ export function useWorkbench() {
     read,
     mutate,
     stageFiles,
+    staging,
     selectCommit,
     searchHistory,
   };

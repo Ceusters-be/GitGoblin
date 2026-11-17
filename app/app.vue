@@ -1011,7 +1011,7 @@ async function toggleFileStage(
   group: string,
   folder = false,
 ) {
-  if (busy.value || example.value || !["working", "staged"].includes(group))
+  if ((busy.value && !w.staging.value) || example.value || !["working", "staged"].includes(group))
     return;
   const files = (group === "staged" ? staged.value : working.value).filter(
     (file) =>
@@ -1032,7 +1032,7 @@ async function toggleFileStage(
   }
 }
 async function toggleSelectedFiles(paths: string[], group: string) {
-  if (busy.value || example.value || !["working", "staged"].includes(group))
+  if ((busy.value && !w.staging.value) || example.value || !["working", "staged"].includes(group))
     return;
   const files = (group === "staged" ? staged.value : working.value).filter(
     (file) => paths.includes(file.path),
@@ -2089,7 +2089,7 @@ onUnmounted(() => {
                     v-if="group.mode !== 'branch'"
                     class="stage-all"
                     :disabled="
-                      busy ||
+                      (busy && !w.staging.value) ||
                       example ||
                       !group.files.length ||
                       group.files.some((file) => file.conflict)
@@ -2113,7 +2113,7 @@ onUnmounted(() => {
                     :tree="filesAsTree"
                     :selected="mode === group.mode ? selected : ''"
                     :mode="group.mode"
-                    :editable="!busy && !example && group.mode !== 'branch'"
+                    :editable="(!busy || w.staging.value) && !example && group.mode !== 'branch'"
                     :native-actions="desktop() && !example"
                     @open-editor="fileLocation('open_editor', $event)"
                     @reveal="fileLocation('reveal_path', $event)"
@@ -2208,7 +2208,7 @@ onUnmounted(() => {
                     v-if="mode !== 'branch' && !selectedFile?.conflict"
                     class="secondary small bg-[var(--raised)] [border-color:var(--line)] text-[var(--fg-secondary)] text-[11px] py-[4px] px-[7px] rounded-[4px]"
                     :disabled="
-                      busy || example || !selected
+                      (busy && !w.staging.value) || example || !selected
                     "
                     @click="stage"
                   >

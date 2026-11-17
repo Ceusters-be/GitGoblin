@@ -151,3 +151,100 @@ it.each(['working', 'staged'])('handles 598 %s files with one bulk mutation and 
   expect(w.busy.value).toBe(false);
   scope.stop();
 });
+
+it('moves files immediately and queues index writes while Git is still running', async () => {
+  let finish!: () => void;
+  const blocked = new Promise<void>(resolve => { finish = resolve; });
+  const files = ['first.txt', 'next.txt'].map(path => ({ path, index: ' ', worktree: 'M', conflict: false }));
+  const actions: string[] = [];
+  vi.mocked(git).mockImplementation(async request => {
+    if (request.action === 'stage') {
+      actions.push(request.path!);
+      await blocked;
+      files.find(file => file.path === request.path)!.index = 'M';
+      files.find(file => file.path === request.path)!.worktree = ' ';
+      return 'Index updated';
+    }
+    if (request.action === 'status') return files.map(file => ({ ...file }));
+    return { text: '', fingerprint: '' };
+  });
+  const scope = effectScope();
+  const w = scope.run(() => useWorkbench())!;
+  w.repo.value = demoSnapshot.root;
+  w.snapshot.value = { ...demoSnapshot, files: files.map(file => ({ ...file })) };
+  const first = w.stageFiles(['first.txt'], 'working');
+  let second: Promise<unknown> | undefined;
+  try {
+    expect(w.working.value.map(file => file.path)).toEqual(['next.txt']);
+    expect(w.staged.value.map(file => file.path)).toEqual(['first.txt']);
+    second = w.stageFiles(['next.txt'], 'working');
+    expect(w.working.value).toEqual([]);
+    await nextTick();
+    expect(actions).toEqual(['first.txt']);
+    await expect(w.mutate('commit', { text: 'Too soon' })).rejects.toThrow('Wait');
+  } finally {
+    finish();
+    await first;
+    await second;
+    scope.stop();
+  }
+  expect(actions).toEqual(['first.txt', 'next.txt']);
+  expect(w.busy.value).toBe(false);
+});
+
+it.each(['working', 'staged'])('rolls back an optimistic %s move when Git rejects it', async mode => {
+  let fail!: (error: Error) => void;
+  const blocked = new Promise<never>((_, reject) => { fail = reject; });
+  const file = { path: 'file.txt', index: mode === 'staged' ? 'A' : '?', worktree: mode === 'staged' ? ' ' : '?', conflict: false };
+  vi.mocked(git).mockImplementation(async request => {
+    if (request.action === 'stage' || request.action === 'unstage') return blocked;
+    if (request.action === 'status') return [file];
+    return { text: '', fingerprint: '' };
+  });
+  const scope = effectScope();
+  const w = scope.run(() => useWorkbench())!;
+  w.repo.value = demoSnapshot.root;
+  w.snapshot.value = { ...demoSnapshot, files: [file] };
+  const operation = w.stageFiles([file.path], mode);
+  expect(mode === 'staged' ? w.staged.value : w.working.value).toEqual([]);
+  fail(new Error('Index locked'));
+  await expect(operation).rejects.toThrow('Index locked');
+  expect(mode === 'staged' ? w.staged.value : w.working.value).toEqual([file]);
+  expect(w.error.value).toContain('Index locked');
+  expect(w.busy.value).toBe(false);
+  scope.stop();
+});
+
+it('keeps later queued moves visible after an earlier write fails', async () => {
+  let fail!: (error: Error) => void;
+  let finish!: () => void;
+  const firstWrite = new Promise<never>((_, reject) => { fail = reject; });
+  const secondWrite = new Promise<void>(resolve => { finish = resolve; });
+  const files = ['first.txt', 'next.txt'].map(path => ({ path, index: ' ', worktree: 'M', conflict: false }));
+  vi.mocked(git).mockImplementation(async request => {
+    if (request.action === 'stage') {
+      if (request.path === 'first.txt') return firstWrite;
+      await secondWrite;
+      files[1] = { ...files[1]!, index: 'M', worktree: ' ' };
+      return 'Done';
+    }
+    if (request.action === 'status') return files.map(file => ({ ...file }));
+    return { text: '', fingerprint: '' };
+  });
+  const scope = effectScope();
+  const w = scope.run(() => useWorkbench())!;
+  w.repo.value = demoSnapshot.root;
+  w.snapshot.value = { ...demoSnapshot, files: files.map(file => ({ ...file })) };
+  const first = w.stageFiles(['first.txt'], 'working');
+  const second = w.stageFiles(['next.txt'], 'working');
+  fail(new Error('Index locked'));
+  await expect(first).rejects.toThrow('Index locked');
+  expect(w.working.value.map(file => file.path)).toEqual(['first.txt']);
+  expect(w.staged.value.map(file => file.path)).toEqual(['next.txt']);
+  expect(w.busy.value).toBe(true);
+  finish();
+  await second;
+  expect(w.error.value).toContain('Index locked');
+  expect(w.busy.value).toBe(false);
+  scope.stop();
+});
