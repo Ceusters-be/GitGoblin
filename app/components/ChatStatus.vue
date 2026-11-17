@@ -26,7 +26,7 @@ const labels = {
 </script>
 <template>
   <span
-    class="chat-status relative inline-flex items-center shrink-0 [&_.waiting]:text-[#f6cc83] [&_.waiting]:bg-[#edaf3924] [&_.working]:text-[#aacbff] [&_.working]:bg-[#659bff24] [&_.done]:text-[#a0deb0] [&_.done]:bg-[#57bd7624] [&_.ready]:text-[#b6c0d3] [&_.ready]:bg-[#9aabc018] [&_.failed]:text-[#ffa7ad] [&_.failed]:bg-[#ed637424]"
+    class="chat-status relative inline-flex items-center shrink-0 [&_.waiting]:text-[var(--warning)] [&_.waiting]:bg-[var(--warning-bg)] [&_.working]:text-[var(--accent)] [&_.working]:bg-[var(--selection)] [&_.done]:text-[var(--success)] [&_.done]:bg-[var(--success-bg)] [&_.ready]:text-[var(--fg-secondary)] [&_.ready]:bg-[var(--selection)] [&_.failed]:text-[var(--danger)] [&_.failed]:bg-[var(--danger-bg)]"
     :title="`${labels[state]}${unread ? ' · Unread response' : ''}`"
   >
     <span
@@ -56,7 +56,7 @@ const labels = {
     </span>
     <span
       v-if="unread"
-      class="unread absolute top-[-1px] right-[-1px] w-[6px] h-[6px] rounded-full bg-[#b3bfff] shadow-[0_0_0_2px_#1b202b]"
+      class="unread absolute top-[-1px] right-[-1px] w-[6px] h-[6px] rounded-full bg-[var(--selection)] shadow-[0_0_0_2px_var(--raised)]"
       role="img"
       aria-label="Unread response"
     />

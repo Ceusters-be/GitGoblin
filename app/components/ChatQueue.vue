@@ -29,8 +29,8 @@ function reorder(index: number, direction: number) {
 </script>
 
 <template>
-  <section v-if="rows.length" class="shrink-0 mx-[10px] mt-[10px] rounded-[8px] border border-[#353d4d] bg-[#1b1f29] text-[12px]" aria-label="Queued messages">
-    <div class="flex items-center gap-2 px-3 py-2 text-[#9eadc8]">
+  <section v-if="rows.length" class="shrink-0 mx-[10px] mt-[10px] rounded-[8px] border border-[var(--line)] bg-[var(--panel)] text-[12px]" aria-label="Queued messages">
+    <div class="flex items-center gap-2 px-3 py-2 text-[var(--fg-secondary)]">
       <AppButton :aria-expanded="expanded" aria-label="Toggle queued messages" @click="expanded = !expanded">
         <ChevronRight :size="14" :class="{ 'rotate-90': expanded }" />
         <Clock3 :size="14" /> Queued <span>{{ rows.length }}</span>
@@ -39,7 +39,7 @@ function reorder(index: number, direction: number) {
       <AppButton v-if="rows.some(row => row.run.queueHeld)" :disabled="disabled || pending" @click="action('queue.resume')">Resume queue</AppButton>
     </div>
     <ol v-if="expanded" class="m-0 max-h-[240px] overflow-auto list-none p-0">
-      <li v-for="(row, index) in rows" :key="row.run.id" class="flex items-start gap-1 border-t border-[#353d4d] px-3 py-2" @dragover.prevent @drop.prevent="dragged && action('queued-run.reorder', { runId: dragged, beforeRunId: row.run.id }); dragged = ''">
+      <li v-for="(row, index) in rows" :key="row.run.id" class="flex items-start gap-1 border-t border-[var(--line)] px-3 py-2" @dragover.prevent @drop.prevent="dragged && action('queued-run.reorder', { runId: dragged, beforeRunId: row.run.id }); dragged = ''">
         <AppButton size="icon" class="shrink-0" aria-label="Reorder queued message (drag or press arrow keys)" title="Drag or move with Up/Down arrow keys" :draggable="!disabled && !pending" @dragstart="dragged = row.run.id" @dragend="dragged = ''" :disabled="disabled || pending" @keydown.up.prevent="reorder(index, -1)" @keydown.down.prevent="reorder(index, 1)"><GripVertical :size="14" /></AppButton>
         <div class="min-w-0 flex-1 pt-[4px]">
           <template v-if="editing === row.run.id">
@@ -49,8 +49,8 @@ function reorder(index: number, direction: number) {
           </template>
           <template v-else>
             <p class="m-0 whitespace-pre-wrap break-words">{{ row.message?.text || 'Image instruction' }}</p>
-            <span v-for="image in row.message?.attachments || []" :key="image.id" class="mr-2 text-[#9eadc8]">{{ image.name }}</span>
-            <span v-if="row.run.queueHeld" class="text-[#9eadc8]">Queue paused</span>
+            <span v-for="image in row.message?.attachments || []" :key="image.id" class="mr-2 text-[var(--fg-secondary)]">{{ image.name }}</span>
+            <span v-if="row.run.queueHeld" class="text-[var(--fg-secondary)]">Queue paused</span>
           </template>
         </div>
         <div class="flex shrink-0 items-center gap-[2px]">

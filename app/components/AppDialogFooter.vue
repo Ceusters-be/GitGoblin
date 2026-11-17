@@ -10,7 +10,7 @@ const AppDialogFooter: FunctionalComponent<HTMLAttributes> = (
     {
       ...attrs,
       class: [
-        "flex justify-end items-center gap-[8px] mt-[22px] border-t-[1px] border-solid border-t-[#30394d] pt-[16px] text-[12px] [&>span]:mr-auto [&>span]:text-[#7e90b1] [&>span]:text-[11px]",
+        "flex justify-end items-center gap-[8px] mt-[22px] border-t-[1px] border-solid border-t-[var(--line)] pt-[16px] text-[12px] [&>span]:mr-auto [&>span]:text-[var(--muted)] [&>span]:text-[11px]",
         attrs.class,
       ],
     },

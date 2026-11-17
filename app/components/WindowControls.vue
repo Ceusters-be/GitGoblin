@@ -43,7 +43,7 @@ onUnmounted(() => {
     data-tauri-drag-region="false"
   >
     <AppButton
-      class="w-[44px] h-full p-0 border-0 rounded-none text-[#a5aab7] hover:bg-[#2a2d36] hover:text-[white] focus-visible:outline-offset-[-3px]"
+      class="w-[44px] h-full p-0 border-0 rounded-none text-[var(--fg-secondary)] hover:bg-[var(--raised)] hover:text-[white] focus-visible:outline-offset-[-3px]"
       aria-label="Minimize window"
       title="Minimize"
       @click="control('minimize')"
@@ -51,7 +51,7 @@ onUnmounted(() => {
       <Minus :size="14" />
     </AppButton>
     <AppButton
-      class="w-[44px] h-full p-0 border-0 rounded-none text-[#a5aab7] hover:bg-[#2a2d36] hover:text-[white] focus-visible:outline-offset-[-3px]"
+      class="w-[44px] h-full p-0 border-0 rounded-none text-[var(--fg-secondary)] hover:bg-[var(--raised)] hover:text-[white] focus-visible:outline-offset-[-3px]"
       :aria-label="maximized ? 'Restore window' : 'Maximize window'"
       :title="maximized ? 'Restore' : 'Maximize'"
       @click="control('toggleMaximize')"
@@ -59,7 +59,7 @@ onUnmounted(() => {
       <Copy v-if="maximized" :size="12" /><Square v-else :size="12" />
     </AppButton>
     <AppButton
-      class="window-close w-[44px] h-full p-0 border-0 rounded-none text-[#a5aab7] hover:bg-[#2a2d36] hover:text-[white] [button&:hover]:bg-[#c42b3a] focus-visible:outline-offset-[-3px]"
+      class="window-close w-[44px] h-full p-0 border-0 rounded-none text-[var(--fg-secondary)] hover:bg-[var(--raised)] hover:text-[white] [button&:hover]:bg-[var(--danger-bg)] focus-visible:outline-offset-[-3px]"
       aria-label="Close window"
       title="Close"
       @click="control('close')"

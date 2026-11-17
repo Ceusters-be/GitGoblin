@@ -46,6 +46,7 @@ import {
   LoaderCircle,
 } from "lucide-vue-next";
 import { useWorkbench } from "~/composables/useWorkbench";
+import { useTheme } from "~/composables/useTheme";
 import { branchTree } from "~/lib/branches";
 import {
   chatHistory,
@@ -71,6 +72,8 @@ import type {
   GitRef,
 } from "~/lib/types";
 const w = useWorkbench();
+const { theme, error: themeError, setTheme } = useTheme();
+const settingsOpen = ref(false);
 const {
   repo,
   recent,
@@ -1201,6 +1204,11 @@ function reorder(index: number, delta: number) {
   rebaseCommits.value = list;
 }
 function keydown(event: KeyboardEvent) {
+  if ((event.ctrlKey || event.metaKey) && event.key === ',' && !event.altKey) {
+    event.preventDefault();
+    settingsOpen.value = true;
+    return;
+  }
   if (event.ctrlKey && event.key === "o") {
     event.preventDefault();
     void chooseRepository();
@@ -1270,7 +1278,7 @@ onUnmounted(() => {
 </script>
 <template>
   <div
-    class="app-shell grid grid-cols-[var(--sidebar)_minmax(0,_1fr)] grid-rows-[var(--titlebar-height)_auto_minmax(0,_1fr)] h-[100dvh] overflow-hidden [&_.badge]:text-[9px] [&_.badge]:bg-[#242831] [&_.badge]:text-[#a1a8ba] [&_.badge]:py-[3px] [&_.badge]:px-[5px] [&_.badge]:rounded-[4px] [&_.graph-line.last]:bottom-[50%] [--pane-heading-height:68px] [&.resizing-sidebar]:cursor-col-resize! [&.resizing-sidebar]:select-none! [&.resizing-sidebar_*]:cursor-col-resize! [&.resizing-sidebar_*]:select-none!"
+    class="app-shell grid grid-cols-[var(--sidebar)_minmax(0,_1fr)] grid-rows-[var(--titlebar-height)_auto_minmax(0,_1fr)] h-[100dvh] overflow-hidden [&_.badge]:text-[9px] [&_.badge]:bg-[var(--raised)] [&_.badge]:text-[var(--fg-secondary)] [&_.badge]:py-[3px] [&_.badge]:px-[5px] [&_.badge]:rounded-[4px] [&_.graph-line.last]:bottom-[50%] [&.resizing-sidebar]:cursor-col-resize! [&.resizing-sidebar]:select-none! [&.resizing-sidebar_*]:cursor-col-resize! [&.resizing-sidebar_*]:select-none! bg-[var(--chrome)] [--pane-heading-height:56px]"
     :class="[{ 'resizing-sidebar': resizingSidebar }]"
     :style="{
       '--sidebar': chatVisible ? '0px' : `${sidebarWidth}px`,
@@ -1281,26 +1289,17 @@ onUnmounted(() => {
   >
     <PopoverRoot v-model:open="repositoryMenuOpen"
       ><header
-        class="titlebar col-span-full flex items-center gap-0 p-0 border-b-[1px] border-solid border-b-[var(--line)] bg-[#14161b] select-none min-w-0 [&>.toolbar-actions]:shrink-0 [&>.toolbar-actions]:pr-[8px] [&_.toolbar-actions>button]:h-[32px] [&_.toolbar-actions>.menu-anchor>button]:h-[32px] [&>.icon-button]:shrink-0 [&>.icon-button]:mr-[8px]"
+        class="titlebar h-[var(--titlebar-height)] min-h-[var(--titlebar-height)] col-span-full flex items-center gap-0 p-0 border-b-[1px] border-solid border-b-[var(--line)] bg-[var(--panel)] select-none min-w-0 [&>.toolbar-actions]:shrink-0 [&>.toolbar-actions]:pr-[8px] [&_.toolbar-actions>button]:h-[32px] [&_.toolbar-actions>.menu-anchor>button]:h-[32px] [&>.icon-button]:shrink-0 [&>.icon-button]:mr-[8px] [[data-theme=daylight]_&]:bg-[linear-gradient(110deg,#e5d9f3,var(--chrome)_45%)]"
         data-tauri-drag-region="deep"
       >
         <div
-          class="brand flex items-center gap-[9px] w-auto min-w-[var(--sidebar)] h-full pt-0 pr-[12px] pb-0 pl-[16px] border-r-[1px] border-solid border-r-[var(--line)] shrink-0 text-[13px] tracking-[-0.3px] font-[650] [&>svg]:w-[21px] [&>svg]:h-[21px] [&>svg]:text-[#b1bef7] [&_.workspace-modes]:mt-0 [&_.workspace-modes]:mr-0 [&_.workspace-modes]:mb-0 [&_.workspace-modes]:ml-[8px] [&_.workspace-modes]:tracking-[normal] [&_.workspace-modes]:font-normal"
+          class="brand flex items-center gap-[9px] w-auto min-w-[var(--sidebar)] h-full pt-0 pr-[12px] pb-0 pl-[16px] border-solid shrink-0 tracking-[-0.3px] font-normal [&>svg]:w-[21px] [&>svg]:h-[21px] [&>svg]:text-[var(--accent)] [&_.workspace-modes]:mt-0 [&_.workspace-modes]:mr-0 [&_.workspace-modes]:mb-0 [&_.workspace-modes]:ml-[8px] [&_.workspace-modes]:tracking-[normal] [&_.workspace-modes]:font-normal border-r-0 text-[16px]"
         >
-          <svg viewBox="0 0 32 32" aria-hidden="true">
-            <path
-              d="M4 7l7 3 5-5 5 5 7-3-2 15-10 6L6 22z"
-              fill="currentColor"
-            />
-            <path
-              d="M10 15l4 2-4 2m12-4l-4 2 4 2"
-              fill="none"
-              stroke="#101114"
-              stroke-width="2"
-            /></svg
-          ><span>gitgoblin</span>
+          <img src="/icon.png" alt="" width="25" height="25" class="brand-logo-light shrink-0 object-contain hidden [[data-theme=daylight]_&]:block" draggable="false" />
+          <img src="/icon-dark.png" alt="" width="25" height="25" class="brand-logo-dark shrink-0 object-contain [[data-theme=daylight]_&]:hidden" draggable="false" /><strong class="font-bold">GitGoblin</strong>
+          <span class="shrink-0 whitespace-nowrap rounded-[4px] border border-[var(--line)] bg-[var(--raised)] ml-[5px] px-[5px] py-[2px] text-[9px] font-normal uppercase tracking-[1.4px] text-[var(--muted)]">Early access</span>
           <nav
-            class="workspace-modes flex gap-[4px] h-[36px] flex-[0_0_164px] mt-0 mr-0 mb-0 ml-[12px] p-[3px] bg-[#101218] border-[1px] border-solid border-[var(--line)] rounded-[9px] [&>button]:flex-1 [&>button]:justify-center [&>button]:gap-[7px] [&>button]:py-0 [&>button]:px-[7px] [&>button]:text-[#96a3ba] [&>button]:rounded-[6px] [&>button]:text-[12px] [&>button[aria-pressed='true']]:text-[#e3e9ff] [&>button[aria-pressed='true']]:bg-[#2a3348] [&>button[aria-pressed='true']]:shadow-[inset_0_0_0_1px_#465579] [&_.mode-attention]:text-[#e9bc75] [&_.mode-attention]:flex [&_.mode-running]:text-[#a2d5b5] [&_.mode-running]:flex"
+            class="workspace-modes flex gap-[4px] flex-[0_0_164px] mt-0 mr-0 mb-0 ml-[12px] p-[3px] bg-[var(--bg)] border-solid border-[var(--line)] [&>button]:flex-1 [&>button]:justify-center [&>button]:gap-[7px] [&>button]:py-0 [&>button]:px-[7px] [&>button]:text-[var(--muted)] [&>button]:rounded-[6px] [&>button]:text-[12px] [&>button[aria-pressed='true']]:bg-[var(--selection)] [&_.mode-attention]:text-[var(--warning)] [&_.mode-attention]:flex [&_.mode-running]:text-[var(--success)] [&_.mode-running]:flex h-[32px] border-0 rounded-[7px] [&>button[aria-pressed='true']]:text-[var(--accent)] [&>button[aria-pressed='true']]:shadow-none"
             aria-label="Workspace mode"
           >
             <AppButton
@@ -1341,7 +1340,7 @@ onUnmounted(() => {
         </div>
         <nav
           v-if="!chatVisible && favorites.length"
-          class="favorite-tabs flex items-center gap-[4px] min-w-0 max-w-[35%] ml-[12px] overflow-x-auto [scrollbar-width:thin] [&_button]:shrink-0 [&_button]:h-[32px] [&_button]:max-w-[160px] [&_button]:py-0 [&_button]:px-[10px] [&_button]:rounded-[5px] [&_button]:text-[11px] [&_button]:text-[#9ba5bb] [&_button_span]:overflow-hidden [&_button_span]:text-ellipsis [&_button_span]:whitespace-nowrap [&_button_svg]:shrink-0 [&_button_svg]:text-[#d6be80] [&_button[aria-current]]:text-[#e0e6f4] [&_button[aria-current]]:bg-[#252a37] [&_button[aria-current]]:[border-color:#465579]"
+          class="favorite-tabs flex items-center gap-[4px] min-w-0 max-w-[35%] ml-[12px] overflow-x-auto [scrollbar-width:thin] [&_button]:shrink-0 [&_button]:h-[32px] [&_button]:max-w-[160px] [&_button]:py-0 [&_button]:px-[10px] [&_button]:rounded-[5px] [&_button]:text-[11px] [&_button]:text-[var(--fg-secondary)] [&_button_span]:overflow-hidden [&_button_span]:text-ellipsis [&_button_span]:whitespace-nowrap [&_button_svg]:shrink-0 [&_button_svg]:text-[var(--warning)] [&_button[aria-current]]:text-[var(--fg)] [&_button[aria-current]]:bg-[var(--hover)] [&_button[aria-current]]:[border-color:var(--line)]"
           aria-label="Favorite repositories"
         >
           <AppButton
@@ -1367,12 +1366,12 @@ onUnmounted(() => {
         </nav>
         <div
           v-show="!chatVisible"
-          class="titlebar-context flex items-center gap-[8px] flex-1 min-w-0 h-full py-0 px-[12px] text-[11px] text-[#81899b] whitespace-nowrap [&_strong]:text-[#c5cbd8] [&_strong]:font-medium [&_strong]:overflow-hidden [&_strong]:text-ellipsis [&>span:last-child]:overflow-hidden [&>span:last-child]:text-ellipsis"
+          class="titlebar-context flex items-center gap-[8px] flex-1 min-w-0 h-full py-0 px-[12px] text-[11px] text-[var(--muted)] whitespace-nowrap [&_strong]:text-[var(--fg-secondary)] [&_strong]:font-medium [&_strong]:overflow-hidden [&_strong]:text-ellipsis [&>span:last-child]:overflow-hidden [&>span:last-child]:text-ellipsis"
         >
           <template v-if="!chatVisible">
             <PopoverTrigger as-child
               ><AppButton
-                class="repository-switch min-w-0 max-w-[55%] h-[32px] py-0 px-[8px] text-[#c5cbd8] [&>strong]:text-[11px]"
+                class="repository-switch min-w-0 max-w-[55%] h-[32px] py-0 px-[8px] text-[var(--fg-secondary)] [&>strong]:text-[11px]"
                 aria-label="Switch repository"
                 :disabled="busy"
                 :title="repo || 'Switch repository'"
@@ -1383,7 +1382,7 @@ onUnmounted(() => {
                 ><ChevronDown :size="12" /></AppButton
             ></PopoverTrigger>
             <template v-if="snapshot"
-              ><span class="context-divider text-[#484e5c]">/</span
+              ><span class="context-divider text-[var(--muted)]">/</span
               ><GitBranch :size="13" /><span :title="snapshot.branch">{{
                 snapshot.branch
               }}</span></template
@@ -1420,7 +1419,7 @@ onUnmounted(() => {
             <AppButton :disabled="busy" @click="chooseRepository()">
               <FolderOpen :size="15" /><span>Open repository&#8230;</span
               ><kbd
-                class="[:where(&)]:font-['Cascadia_Code',_'JetBrains_Mono',_Consolas,_monospace] [:where(&)]:text-[10px] [:where(&)]:text-[#777d8a] [:where(&)]:font-normal [:where(&)]:whitespace-nowrap"
+                class="[:where(&)]:font-['Cascadia_Code',_'JetBrains_Mono',_Consolas,_monospace] [:where(&)]:text-[10px] [:where(&)]:text-[var(--muted)] [:where(&)]:font-normal [:where(&)]:whitespace-nowrap"
                 >Ctrl O</kbd
               >
             </AppButton>
@@ -1434,14 +1433,14 @@ onUnmounted(() => {
               <Layers :size="15" />Explore example workspace
             </AppButton>
             <div
-              class="repository-menu-heading py-[9px] px-[10px] text-[10px] text-[#7e8ba4]"
+              class="repository-menu-heading py-[9px] px-[10px] text-[10px] text-[var(--muted)]"
             >
               Recent repositories
             </div>
             <div
               v-for="path in [...new Set([...favorites, ...recent])]"
               :key="path"
-              class="repository-menu-row [&>button:first-child]:w-full [&>button:first-child]:justify-start [&>button:first-child]:text-left [&>button:first-child]:py-[9px] [&>button:first-child]:px-[10px] [&>button:first-child>span]:flex-1 [&>button:first-child>span]:min-w-0 [&>button:first-child>span]:flex [&>button:first-child>span]:flex-col [&>button:first-child>span]:gap-[4px] [&>button[aria-current]]:bg-[#262e40] flex items-center gap-[4px] [&>button:first-child]:flex-1 [&>button:first-child]:min-w-0"
+              class="repository-menu-row [&>button:first-child]:w-full [&>button:first-child]:justify-start [&>button:first-child]:text-left [&>button:first-child]:py-[9px] [&>button:first-child]:px-[10px] [&>button:first-child>span]:flex-1 [&>button:first-child>span]:min-w-0 [&>button:first-child>span]:flex [&>button:first-child>span]:flex-col [&>button:first-child>span]:gap-[4px] [&>button[aria-current]]:bg-[var(--selection)] flex items-center gap-[4px] [&>button:first-child]:flex-1 [&>button:first-child]:min-w-0"
               @contextmenu="repositoryContext($event, path)"
             >
               <AppButton
@@ -1482,7 +1481,7 @@ onUnmounted(() => {
               </AppButton>
               <AppButton
                 size="icon"
-                class="favorite-toggle icon-button shrink-0 [&.favorited]:text-[#e7ce8d]"
+                class="favorite-toggle icon-button shrink-0 [&.favorited]:text-[var(--warning)]"
                 :class="[[{ favorited: w.isFavorite(path) }]]"
                 :disabled="w.favoriteSaving.value"
                 :aria-label="`${w.isFavorite(path) ? 'Unfavorite' : 'Favorite'} ${path}`"
@@ -1515,7 +1514,7 @@ onUnmounted(() => {
         >
         <div
           v-if="snapshot && !chatVisible"
-          class="toolbar-actions flex items-center gap-[3px] [&>button]:text-[11px] [&>button]:text-[#9aa3b7] [&>button]:py-[5px] [&>button]:px-[8px] [@media(max-width:1400px)]:[&>button>span]:hidden"
+          class="toolbar-actions flex items-center gap-[3px] [&>button]:text-[11px] [&>button]:text-[var(--fg-secondary)] [&>button]:py-[5px] [&>button]:px-[8px] [@media(max-width:1400px)]:[&>button>span]:hidden"
           aria-label="Git actions"
         >
           <AppButton
@@ -1557,7 +1556,7 @@ onUnmounted(() => {
             </AppButton>
             <div
               v-if="menu"
-              class="dropdown absolute z-[20] right-0 top-[35px] w-[200px] max-h-[70vh] overflow-auto bg-[#20242d] border-[1px] border-solid border-[#3b4456] shadow-[0_12px_40px_#0008] rounded-[7px] p-[5px] [&_button]:flex [&_button]:w-full [&_button]:justify-start [&_button]:text-[11px] [&_button]:py-[8px] [&_button]:px-[10px]"
+              class="dropdown absolute z-[20] right-0 top-[35px] w-[200px] max-h-[70vh] overflow-auto bg-[var(--raised)] border-[1px] border-solid border-[var(--line)] shadow-[0_12px_40px_#0008] rounded-[7px] p-[5px] [&_button]:flex [&_button]:w-full [&_button]:justify-start [&_button]:text-[11px] [&_button]:py-[8px] [&_button]:px-[10px]"
             >
               <AppButton
                 v-for="action in [
@@ -1590,12 +1589,13 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
+        <AppButton size="icon" class="icon-button" title="Settings (Ctrl+,)" aria-label="Settings" @click="settingsOpen = true"><Settings2 :size="17" /></AppButton>
         <WindowControls v-if="desktop()" @error="error = $event" /></header
     ></PopoverRoot>
     <div class="workspace-banners col-span-full min-w-0">
       <div
         v-if="example"
-        class="example-banner flex items-center gap-[10px] py-[7px] px-[16px] text-[9px] bg-[#242436] text-[#9d9ab7] border-b-[1px] border-solid border-b-[#35334a] [&>span]:text-[8px] [&>span]:tracking-[1px] [&>span]:text-[#b9b2d6] [&_button]:ml-auto [&_button]:text-[9px] [&_button]:py-[2px] [&_button]:px-[4px]"
+        class="example-banner flex items-center gap-[10px] py-[7px] px-[16px] text-[9px] bg-[var(--panel)] text-[var(--fg-secondary)] border-b-[1px] border-solid border-b-[var(--line)] [&>span]:text-[8px] [&>span]:tracking-[1px] [&>span]:text-[var(--fg-secondary)] [&_button]:ml-auto [&_button]:text-[9px] [&_button]:py-[2px] [&_button]:px-[4px]"
       >
         <span>EXAMPLE WORKSPACE</span>Preview data · Git actions are
         disabled<AppButton
@@ -1610,19 +1610,19 @@ onUnmounted(() => {
       </div>
       <div
         v-if="snapshot?.operation"
-        class="operation-banner flex items-center gap-[9px] py-[10px] px-[15px] text-[11px] leading-[1.7] bg-[#2c2a20] text-[#cbb68b] border-b-[1px] border-solid border-b-[#45412c] [&>span]:flex-1 [&>span]:text-[10px]"
+        class="operation-banner flex items-center gap-[9px] py-[10px] px-[15px] text-[11px] leading-[1.7] bg-[var(--warning-bg)] text-[var(--warning)] border-b-[1px] border-solid border-b-[var(--line)] [&>span]:flex-1 [&>span]:text-[10px]"
       >
         <GitMerge :size="16" /><strong
           >{{ snapshot.operation }} in progress</strong
         ><span>Resolve conflicts or amend, then continue.</span
         ><AppButton
-          class="small text-[11px] py-[4px] px-[7px] [border-color:#30343f] rounded-[4px]"
+          class="small text-[11px] py-[4px] px-[7px] [border-color:var(--line)] rounded-[4px]"
           @click="ask('abort', { mode: snapshot.operation })"
         >
           Abort</AppButton
         ><AppButton
           variant="primary"
-          class="primary small [border-color:#30343f] text-[11px] py-[4px] px-[7px] rounded-[4px]"
+          class="primary small [border-color:var(--line)] text-[11px] py-[4px] px-[7px] rounded-[4px]"
           @click="conflictOpen = true"
         >
           {{
@@ -1634,7 +1634,7 @@ onUnmounted(() => {
       </div>
       <div
         v-if="error"
-        class="error-banner flex items-center gap-[9px] py-[10px] px-[15px] text-[11px] leading-[1.7] bg-[#38242b] text-[#e9abb4] border-b-[1px] border-solid border-b-[#61323e] [&>span]:flex-1 [&>span]:whitespace-pre-wrap"
+        class="error-banner flex items-center gap-[9px] py-[10px] px-[15px] text-[11px] leading-[1.7] bg-[var(--danger-bg)] text-[var(--danger)] border-b-[1px] border-solid border-b-[var(--line)] [&>span]:flex-1 [&>span]:whitespace-pre-wrap"
         role="alert"
       >
         <AlertTriangle :size="15" /><span>{{ error }}</span
@@ -1651,11 +1651,11 @@ onUnmounted(() => {
     <aside
       v-show="!chatVisible"
       id="repository-sidebar"
-      class="sidebar relative min-w-0 bg-[#14171e] border-r-[1px] border-solid border-r-[var(--line)] flex flex-col min-h-0 [&.chat-mode>.sidebar-scroll]:flex-[0_1_auto] [&.chat-mode>.sidebar-scroll]:max-h-[170px] [&.chat-mode>.sidebar-scroll]:pb-[8px] [&.chat-mode_.nav-section]:my-[4px] [&.chat-mode_.nav-section]:mx-0 [&.chat-mode_.nav-section]:pt-0 [&.chat-mode_.nav-section]:[border-top:0] [&>.chat-panel]:flex-1 [&>.chat-panel]:[border-left:0] [&>.chat-panel]:[border-top:0] [&_.tree-row.current-worktree]:text-[#d8e4ff] [&_.tree-row.current-worktree]:bg-[#202c3f] [&_.current-worktree_.tiny-label]:text-[#c3d2ff] [&_.current-worktree_.tiny-label]:bg-[#354665] [&_.current-worktree_.tiny-label]:py-[2px] [&_.current-worktree_.tiny-label]:px-[5px] [&_.current-worktree_.tiny-label]:rounded-[4px] [&_.worktree-row]:pt-[8px] [&_.worktree-row]:pb-[8px] [&_.worktree-name]:flex [&_.worktree-name]:flex-col [&_.worktree-name]:items-start [&_.worktree-name]:flex-1 [&_.worktree-name]:min-w-0 [&_.worktree-name]:gap-[4px] [&_.worktree-name_strong]:text-[11px] [&_.worktree-name_strong]:font-semibold [&_.worktree-name_strong]:max-w-full [&_.worktree-name_strong]:overflow-hidden [&_.worktree-name_strong]:text-ellipsis [&_.worktree-name_small]:text-[10px] [&_.worktree-name_small]:text-[#96a7c3] [&_.worktree-name_small]:max-w-full [&_.worktree-name_small]:flex-none [&_.worktree-row_.tiny-label]:shrink-0 [&_.nav-section>.section-heading:not(:first-child)]:border-t-[1px] [&_.nav-section>.section-heading:not(:first-child)]:border-solid [&_.nav-section>.section-heading:not(:first-child)]:border-t-[#2c3341] [&_.nav-section>.section-heading:not(:first-child)]:mt-[12px] [&_.nav-section>.section-heading:not(:first-child)]:pt-[12px] [&_.nav-section>.section-heading:not(:first-child)]:rounded-none [&_button:focus-visible]:[outline:2px_solid_#a7b6ff] [&_button:focus-visible]:outline-offset-[-2px] [&_summary:focus-visible]:[outline:2px_solid_#a7b6ff] [&_summary:focus-visible]:outline-offset-[-2px]"
+      class="sidebar relative min-w-0 bg-[var(--bg)] border-r-[1px] border-r-[var(--line)] flex flex-col min-h-0 [&.chat-mode>.sidebar-scroll]:flex-[0_1_auto] [&.chat-mode>.sidebar-scroll]:max-h-[170px] [&.chat-mode>.sidebar-scroll]:pb-[8px] [&.chat-mode_.nav-section]:my-[4px] [&.chat-mode_.nav-section]:mx-0 [&.chat-mode_.nav-section]:pt-0 [&.chat-mode_.nav-section]:[border-top:0] [&>.chat-panel]:flex-1 [&>.chat-panel]:[border-left:0] [&>.chat-panel]:[border-top:0] [&_.tree-row.current-worktree]:text-[var(--fg)] [&_.tree-row.current-worktree]:bg-[var(--selection)] [&_.current-worktree_.tiny-label]:text-[var(--fg)] [&_.current-worktree_.tiny-label]:bg-[var(--selection)] [&_.current-worktree_.tiny-label]:py-[2px] [&_.current-worktree_.tiny-label]:px-[5px] [&_.current-worktree_.tiny-label]:rounded-[4px] [&_.worktree-row]:pt-[8px] [&_.worktree-row]:pb-[8px] [&_.worktree-name]:flex [&_.worktree-name]:flex-col [&_.worktree-name]:items-start [&_.worktree-name]:flex-1 [&_.worktree-name]:min-w-0 [&_.worktree-name]:gap-[4px] [&_.worktree-name_strong]:text-[11px] [&_.worktree-name_strong]:font-semibold [&_.worktree-name_strong]:max-w-full [&_.worktree-name_strong]:overflow-hidden [&_.worktree-name_strong]:text-ellipsis [&_.worktree-name_small]:text-[10px] [&_.worktree-name_small]:text-[var(--fg-secondary)] [&_.worktree-name_small]:max-w-full [&_.worktree-name_small]:flex-none [&_.worktree-row_.tiny-label]:shrink-0 [&_.nav-section>.section-heading:not(:first-child)]:border-t-[1px] [&_.nav-section>.section-heading:not(:first-child)]:border-solid [&_.nav-section>.section-heading:not(:first-child)]:border-t-[var(--line)] [&_.nav-section>.section-heading:not(:first-child)]:mt-[12px] [&_.nav-section>.section-heading:not(:first-child)]:pt-[12px] [&_.nav-section>.section-heading:not(:first-child)]:rounded-none [&_button:focus-visible]:[outline:2px_solid_var(--accent)] [&_button:focus-visible]:outline-offset-[-2px] [&_summary:focus-visible]:[outline:2px_solid_var(--accent)] [&_summary:focus-visible]:outline-offset-[-2px] mt-[8px] mr-0 mb-[8px] ml-[8px] border border-solid border-[var(--line)] rounded-[9px] [&_.tree-row]:min-h-[28px]! [&_.tree-row]:py-[5px]! [&_.tree-row]:px-[7px]! [&_.tree-row]:text-[12px]! [&_.tree-row]:rounded-[5px]! [&_.section-heading]:text-[var(--muted)]! [&_.section-heading]:text-[10px]! [&_.section-heading]:tracking-[.04em]! [&_.branch-tree_button.tree-row]:pl-[28px]!"
       :class="{ 'chat-mode': chatVisible }"
     >
       <div
-        class="sidebar-resize absolute top-0 bottom-0 right-[-4px] w-[8px] z-[30] cursor-col-resize touch-none outline-none [&::after]:[content:''] [&::after]:absolute [&::after]:top-0 [&::after]:bottom-0 [&::after]:left-[3px] [&::after]:w-[2px] [&::after]:bg-[transparent] [&::after]:[transition:background_.12s] [&:hover::after]:bg-[#9baef2] [&:focus-visible::after]:bg-[#9baef2] [.resizing-sidebar_&::after]:bg-[#9baef2]"
+        class="sidebar-resize absolute top-0 bottom-0 right-[-4px] w-[8px] z-[30] cursor-col-resize touch-none outline-none [&::after]:[content:''] [&::after]:absolute [&::after]:top-0 [&::after]:bottom-0 [&::after]:left-[3px] [&::after]:w-[2px] [&::after]:bg-[transparent] [&::after]:[transition:background_.12s] [&:hover::after]:bg-[var(--accent)] [&:focus-visible::after]:bg-[var(--accent)] [.resizing-sidebar_&::after]:bg-[var(--accent)]"
         role="separator"
         tabindex="0"
         aria-label="Resize sidebar"
@@ -1675,7 +1675,7 @@ onUnmounted(() => {
       />
       <div
         v-show="!chatVisible"
-        class="repository-picker flex items-center gap-[10px] py-[10px] px-[16px] mb-0 bg-[#1a1f2a] border-b-[1px] border-solid border-b-[var(--line)] text-[#a7b3d6] [&>div]:flex [&>div]:flex-col [&>div]:gap-[4px] [&>div]:flex-1 [&>div]:min-w-0 [&_strong]:text-[#e3e5ed] [&_strong]:text-[14px] [&_strong]:overflow-hidden [&_strong]:text-ellipsis [&_span]:text-[#93a0b6] [&_span]:text-[10px] h-[var(--pane-heading-height)] min-h-[var(--pane-heading-height)] shrink-0 [&_strong]:whitespace-nowrap"
+        class="repository-picker flex items-center gap-[10px] py-[10px] px-[16px] mb-0 bg-[var(--panel)] border-b-[1px] border-solid border-b-[var(--line)] text-[var(--fg-secondary)] [&>div]:flex [&>div]:flex-col [&>div]:gap-[4px] [&>div]:flex-1 [&>div]:min-w-0 [&_strong]:text-[var(--fg)] [&_strong]:text-[14px] [&_strong]:overflow-hidden [&_strong]:text-ellipsis [&_span]:text-[var(--muted)] [&_span]:text-[10px] h-[var(--pane-heading-height)] min-h-[var(--pane-heading-height)] shrink-0 [&_strong]:whitespace-nowrap rounded-t-[8px]"
       >
         <FolderGit2 :size="19" />
         <div>
@@ -1693,10 +1693,10 @@ onUnmounted(() => {
         <template v-if="snapshot">
           <nav
             v-show="!chatVisible"
-            class="main-nav flex flex-col gap-[3px] mb-[16px] [&_button]:justify-start [&_button]:py-[9px] [&_button]:px-[10px] [&_button]:text-[#aab5c9] [&_button]:rounded-[5px] [&_button]:text-[12px] [&_button.active]:bg-[#2c3753] [&_button.active]:text-[#eef1ff] [&_button.active]:shadow-[inset_3px_0_#a9baff] [&_button.active]:font-semibold [&_svg]:text-[#7e8597] [&_.active_svg]:text-[#a3b6ff]"
+            class="main-nav flex flex-col [&_button]:justify-start [&_button]:text-[var(--fg-secondary)] [&_button]:rounded-[5px] [&_button]:text-[12px] [&_button.active]:bg-[var(--selection)] [&_button.active]:text-[var(--fg)] [&_svg]:text-[var(--muted)] [&_.active_svg]:text-[var(--accent)] [&>button]:py-[7px] [&>button]:px-[9px] [&>button.active]:shadow-none [&>button.active]:font-medium gap-[2px] mb-[12px] [&_button]:py-[7px] [&_button]:px-[9px] [&_button.active]:shadow-none [&_button.active]:font-medium"
           >
             <AppButton
-              class="[.segmented_button&.active]:bg-[#292d38] [.segmented_button&.active]:text-[#d1d8ed] [.segmented_button&.active]:shadow-[0_1px_3px_#0004]"
+              class="[.segmented_button&.active]:bg-[var(--hover)] [.segmented_button&.active]:text-[var(--fg)] [.segmented_button&.active]:shadow-[0_1px_3px_#0004]"
               :class="[{ active: view === 'changes' }]"
               :aria-current="view === 'changes' ? 'page' : undefined"
               @click="
@@ -1705,18 +1705,18 @@ onUnmounted(() => {
               "
             >
               <Layers :size="16" />Local changes<span
-                class="count ml-auto text-[10px] text-[#afbce7] bg-[#343c53] rounded-[4px] min-w-[19px] py-[2px] px-[5px] text-center"
+                class="count ml-auto text-[10px] text-[var(--accent)] bg-[var(--selection)] rounded-[4px] min-w-[19px] py-[2px] px-[5px] text-center"
                 >{{ snapshot.files.length }}</span
               ></AppButton
             ><AppButton
-              class="[.segmented_button&.active]:bg-[#292d38] [.segmented_button&.active]:text-[#d1d8ed] [.segmented_button&.active]:shadow-[0_1px_3px_#0004]"
+              class="[.segmented_button&.active]:bg-[var(--hover)] [.segmented_button&.active]:text-[var(--fg)] [.segmented_button&.active]:shadow-[0_1px_3px_#0004]"
               :class="[{ active: view === 'history' }]"
               :aria-current="view === 'history' ? 'page' : undefined"
               @click="view = 'history'"
             >
               <History :size="16" />All commits</AppButton
             ><AppButton
-              class="[.segmented_button&.active]:bg-[#292d38] [.segmented_button&.active]:text-[#d1d8ed] [.segmented_button&.active]:shadow-[0_1px_3px_#0004]"
+              class="[.segmented_button&.active]:bg-[var(--hover)] [.segmented_button&.active]:text-[var(--fg)] [.segmented_button&.active]:shadow-[0_1px_3px_#0004]"
               :class="[{ active: view === 'reflog' }]"
               :aria-current="view === 'reflog' ? 'page' : undefined"
               @click="view = 'reflog'"
@@ -1726,7 +1726,7 @@ onUnmounted(() => {
           </nav>
           <div
             v-show="!chatVisible"
-            class="nav-section my-[14px] mx-0 pt-[10px] border-t-[1px] border-solid border-t-[#2c3341]"
+            class="nav-section my-[14px] mx-0 pt-[10px] border-t-[1px] border-solid border-t-[var(--line)]"
           >
             <AppSectionHeading
               class="section-heading"
@@ -1749,7 +1749,7 @@ onUnmounted(() => {
                 @select="switchBranch"
               />
               <AppTreeRow
-                class="tree-row subdued min-h-[32px] [&.current]:text-[#e4eaff] [&.current]:bg-[#27334a] [&.current]:shadow-[inset_2px_0_#9eafea]"
+                class="tree-row subdued min-h-[32px] [&.current]:text-[var(--fg)] [&.current]:bg-[var(--selection)] [&.current]:shadow-[inset_2px_0_#9eafea]"
                 @click="ask('branch-create')"
               >
                 <Plus :size="13" />New branch
@@ -1758,7 +1758,7 @@ onUnmounted(() => {
           </div>
           <div
             v-show="!chatVisible"
-            class="nav-section my-[14px] mx-0 pt-[10px] border-t-[1px] border-solid border-t-[#2c3341]"
+            class="nav-section my-[14px] mx-0 pt-[10px] border-t-[1px] border-solid border-t-[var(--line)]"
           >
             <AppSectionHeading
               class="section-heading"
@@ -1774,7 +1774,7 @@ onUnmounted(() => {
               ><AppTreeRow
                 v-for="tree in snapshot.worktrees"
                 :key="tree.path"
-                class="tree-row worktree-row min-h-[32px] [&.current]:text-[#e4eaff] [&.current]:bg-[#27334a] [&.current]:shadow-[inset_2px_0_#9eafea]"
+                class="tree-row worktree-row min-h-[32px] [&.current]:text-[var(--fg)] [&.current]:bg-[var(--selection)] [&.current]:shadow-[inset_2px_0_#9eafea]"
                 :title="tree.path"
                 :class="[
                   [
@@ -1820,12 +1820,12 @@ onUnmounted(() => {
                   ></span
                 ><span
                   v-if="normalized(tree.path) === normalized(repo)"
-                  class="tiny-label ml-auto text-[9px] text-[#6f7890]"
+                  class="tiny-label ml-auto text-[9px] text-[var(--muted)]"
                   >Current</span
                 ></AppTreeRow
               ><AppTreeRow
                 v-show="!chatVisible"
-                class="tree-row subdued min-h-[32px] [&.current]:text-[#e4eaff] [&.current]:bg-[#27334a] [&.current]:shadow-[inset_2px_0_#9eafea]"
+                class="tree-row subdued min-h-[32px] [&.current]:text-[var(--fg)] [&.current]:bg-[var(--selection)] [&.current]:shadow-[inset_2px_0_#9eafea]"
                 @click="ask('worktree-add')"
               >
                 <Plus :size="13" />New worktree
@@ -1834,7 +1834,7 @@ onUnmounted(() => {
           </div>
           <div
             v-show="!chatVisible"
-            class="nav-section compact my-[14px] mx-0 pt-[10px] border-t-[1px] border-solid border-t-[#2c3341] [&_.section-heading]:pt-[13px]"
+            class="nav-section compact my-[14px] mx-0 pt-[10px] border-t-[1px] border-solid border-t-[var(--line)] [&_.section-heading]:pt-[13px]"
           >
             <AppSectionHeading
               class="section-heading"
@@ -1855,7 +1855,7 @@ onUnmounted(() => {
                 @select="switchBranch"
               />
               <AppTreeRow
-                class="tree-row subdued min-h-[32px] [&.current]:text-[#e4eaff] [&.current]:bg-[#27334a] [&.current]:shadow-[inset_2px_0_#9eafea]"
+                class="tree-row subdued min-h-[32px] [&.current]:text-[var(--fg)] [&.current]:bg-[var(--selection)] [&.current]:shadow-[inset_2px_0_#9eafea]"
                 @click="ask('remote-add')"
               >
                 <Plus :size="13" />Add remote
@@ -1877,7 +1877,7 @@ onUnmounted(() => {
                 aria-haspopup="menu"
                 @contextmenu="tagMenu($event, tag)"
                 @keydown.shift.f10.prevent="tagMenu($event, tag)"
-                class="tree-row min-h-[32px] [&.current]:text-[#e4eaff] [&.current]:bg-[#27334a] [&.current]:shadow-[inset_2px_0_#9eafea]"
+                class="tree-row min-h-[32px] [&.current]:text-[var(--fg)] [&.current]:bg-[var(--selection)] [&.current]:shadow-[inset_2px_0_#9eafea]"
                 @click="
                   ask('tag-delete', {
                     target: tag.name.replace('refs/tags/', ''),
@@ -1888,7 +1888,7 @@ onUnmounted(() => {
                   tag.name.replace("refs/tags/", "")
                 }}</span></AppTreeRow
               ><AppTreeRow
-                class="tree-row subdued min-h-[32px] [&.current]:text-[#e4eaff] [&.current]:bg-[#27334a] [&.current]:shadow-[inset_2px_0_#9eafea]"
+                class="tree-row subdued min-h-[32px] [&.current]:text-[var(--fg)] [&.current]:bg-[var(--selection)] [&.current]:shadow-[inset_2px_0_#9eafea]"
                 @click="ask('tag-create')"
               >
                 <Plus :size="13" />New tag
@@ -1911,7 +1911,7 @@ onUnmounted(() => {
                 aria-haspopup="menu"
                 @contextmenu="stashMenu($event, stash)"
                 @keydown.shift.f10.prevent="stashMenu($event, stash)"
-                class="tree-row min-h-[32px] [&.current]:text-[#e4eaff] [&.current]:bg-[#27334a] [&.current]:shadow-[inset_2px_0_#9eafea]"
+                class="tree-row min-h-[32px] [&.current]:text-[var(--fg)] [&.current]:bg-[var(--selection)] [&.current]:shadow-[inset_2px_0_#9eafea]"
                 @click="ask('stash-apply', { target: stash.split('\t')[0]! })"
               >
                 <Archive :size="13" /><span>{{
@@ -1928,7 +1928,7 @@ onUnmounted(() => {
           <AppTreeRow
             v-for="path in recent"
             :key="path"
-            class="tree-row min-h-[32px] [&.current]:text-[#e4eaff] [&.current]:bg-[#27334a] [&.current]:shadow-[inset_2px_0_#9eafea]"
+            class="tree-row min-h-[32px] [&.current]:text-[var(--fg)] [&.current]:bg-[var(--selection)] [&.current]:shadow-[inset_2px_0_#9eafea]"
             :title="path"
             aria-haspopup="menu"
             @contextmenu="repositoryContext($event, path)"
@@ -1962,16 +1962,16 @@ onUnmounted(() => {
       />
       <div
         v-show="!chatVisible"
-        class="sidebar-footer border-t-[1px] border-solid border-t-[var(--line)] py-[10px] px-[12px] bg-[#141519] [&>div]:flex [&>div]:items-center [&>div]:gap-[8px] [&>div]:text-[#656d7d] [&>div]:text-[10px] [&>div]:pt-[12px] [&>div]:px-[3px] [&>div]:pb-[3px]"
+        class="sidebar-footer border-t-[1px] border-solid border-t-[var(--line)] py-[10px] px-[12px] bg-[var(--bg)] [&>div]:flex [&>div]:items-center [&>div]:gap-[8px] [&>div]:text-[var(--muted)] [&>div]:text-[10px] [&>div]:pt-[12px] [&>div]:px-[3px] [&>div]:pb-[3px] rounded-b-[8px]"
       >
         <div>
           <span
-            class="status-dot inline-block w-[6px] h-[6px] rounded-full bg-[#626877] shrink-0 [&.live]:bg-[#8bbca5] [&.live]:shadow-[0_0_0_3px_#8bbca508]"
+            class="status-dot inline-block w-[6px] h-[6px] rounded-full bg-[var(--selection)] shrink-0 [&.live]:bg-[var(--success-bg)] [&.live]:shadow-[0_0_0_3px_#8bbca508]"
             :class="{ live: t3Connected }"
           /><span>{{
             t3Connected ? "T3 Code connected" : "Local workspace"
           }}</span
-          ><span class="version ml-auto text-[#545c6a]">v{{ appVersion }}</span>
+          ><span class="version ml-auto text-[var(--muted)]">v{{ appVersion }}</span>
         </div>
       </div>
     </aside>
@@ -1979,14 +1979,14 @@ onUnmounted(() => {
       ref="workspace"
       id="git-workspace"
       style="grid-column: 2"
-      class="workspace flex flex-col min-h-0 min-w-0 bg-[#111216] relative"
+      class="workspace flex flex-col min-h-0 min-w-0 bg-[var(--bg)] relative m-[8px] border border-solid border-[var(--line)] rounded-[9px] overflow-hidden [&:has(>.review-grid)]:border-0 [&:has(>.review-grid)]:rounded-none [&:has(>.review-grid)]:bg-[var(--chrome)]"
       aria-label="Git workspace"
     >
       <template v-if="snapshot">
         <template v-if="chatVisible || view === 'changes'">
           <div
             v-if="!chatVisible"
-            class="changes-title flex items-center justify-between py-[10px] px-[16px] gap-[12px] [&_p]:text-[10px] [&_p]:text-[#747b8b] [&_p]:mt-[3px] [@media(min-width:1650px)]:py-[10px] [@media(min-width:1650px)]:px-[16px] [@media(max-width:1250px)]:py-[10px] [@media(max-width:1250px)]:px-[16px] [&_h1]:text-[13px] [&_h1]:tracking-normal h-[var(--pane-heading-height)] min-h-[var(--pane-heading-height)] shrink-0 border-b-[1px] border-solid border-b-[var(--line)]"
+            class="changes-title flex items-center justify-between py-[10px] px-[16px] gap-[12px] [&_p]:text-[10px] [&_p]:text-[var(--muted)] [&_p]:mt-[3px] [@media(min-width:1650px)]:py-[10px] [@media(min-width:1650px)]:px-[16px] [@media(max-width:1250px)]:py-[10px] [@media(max-width:1250px)]:px-[16px] [&_h1]:text-[13px] [&_h1]:tracking-normal h-[var(--pane-heading-height)] min-h-[var(--pane-heading-height)] shrink-0 border-b-[1px] border-b-[var(--line)] bg-[var(--panel)] border border-solid border-[var(--line)] rounded-[9px] mb-[8px]"
           >
             <div>
               <h1
@@ -2003,16 +2003,16 @@ onUnmounted(() => {
               </p>
             </div>
             <span
-              class="branch-pill flex items-center gap-[6px] text-[10px] text-[#9ba6c2] bg-[#1a1e28] border-[1px] border-solid border-[#2c3343] rounded-[5px] py-[5px] px-[8px] max-w-[40%] overflow-hidden text-ellipsis whitespace-nowrap [@media(max-width:1250px)]:max-w-[42%] [@media(max-width:1250px)]:text-[9px]"
+              class="branch-pill flex items-center gap-[6px] text-[10px] text-[var(--fg-secondary)] bg-[var(--panel)] border-[1px] border-solid border-[var(--line)] rounded-[5px] py-[5px] px-[8px] max-w-[40%] overflow-hidden text-ellipsis whitespace-nowrap [@media(max-width:1250px)]:max-w-[42%] [@media(max-width:1250px)]:text-[9px]"
               ><GitBranch :size="13" />{{ snapshot.branch }}</span
             >
           </div>
           <div
-            class="review-grid grid grid-cols-[var(--files-width,_clamp(240px,_23vw,_340px))_minmax(0,_1fr)] flex-1 min-h-0 [border-top:0] grid-rows-[minmax(0,_1fr)]"
+            class="review-grid grid grid-cols-[var(--files-width,_clamp(240px,_23vw,_340px))_minmax(0,_1fr)] flex-1 min-h-0 [border-top:0] grid-rows-[minmax(0,_1fr)] gap-[8px]"
           >
             <section
               id="changed-files"
-              class="files-panel border-r-[1px] border-solid border-r-[var(--line)] flex flex-col min-h-0 bg-[#141519] [grid-row:1_/_-1] min-w-0 relative"
+              class="files-panel border-r-[1px] border-r-[var(--line)] flex flex-col min-h-0 bg-[var(--bg)] [grid-row:1_/_-1] min-w-0 relative border border-solid border-[var(--line)] rounded-[9px] [&>.pane-resize]:right-[-9px] [&>:last-child]:rounded-b-[8px]"
             >
               <ResizeHandle
                 v-model="preferredFilesWidth"
@@ -2023,7 +2023,7 @@ onUnmounted(() => {
                 :max="maxFilesWidth"
               />
               <div
-                class="files-toolbar flex items-center gap-[4px] h-[var(--review-heading-height)] min-h-[var(--review-heading-height)] p-[6px] shrink-0 [&>.subtle]:flex-1 [&>.subtle]:pl-[6px] [&>.subtle]:text-[11px]"
+                class="files-toolbar flex items-center gap-[4px] h-[var(--review-heading-height)] min-h-[var(--review-heading-height)] p-[6px] shrink-0 [&>.subtle]:flex-1 [&>.subtle]:pl-[6px] bg-[var(--panel)] rounded-t-[8px] border-b border-solid border-[var(--line)] [&>.subtle]:text-[12px] [&>.subtle]:font-semibold [&>.subtle]:text-[var(--fg)]"
               >
                 <span class="subtle text-[var(--muted)]">Changed files</span>
                 <AppButton
@@ -2050,7 +2050,7 @@ onUnmounted(() => {
               </div>
               <div
                 v-if="mode === 'branch'"
-                class="base-picker flex items-center gap-[8px] pt-[5px] px-[12px] pb-[10px] text-[10px] text-[#818b9d] [&_[role=combobox]]:w-[120px] [&_[role=combobox]]:p-[4px] [&_[role=combobox]]:text-[10px]"
+                class="base-picker flex items-center gap-[8px] pt-[5px] px-[12px] pb-[10px] text-[10px] text-[var(--muted)] [&_[role=combobox]]:w-[120px] [&_[role=combobox]]:p-[4px] [&_[role=combobox]]:text-[10px]"
               >
                 <span>Compare to</span
                 ><AppSelect
@@ -2067,10 +2067,10 @@ onUnmounted(() => {
               <div
                 v-for="group in fileGroups"
                 :key="group.mode"
-                class="file-group flex flex-col flex-1 min-h-0 [&_+_.file-group]:border-t-[1px] [&_+_.file-group]:border-solid [&_+_.file-group]:border-t-[#39404f] [&_.file-list-label]:bg-[#1b1e25] [&_.file-list-label]:border-b-[1px] [&_.file-list-label]:border-solid [&_.file-list-label]:border-b-[var(--line)] [&_.file-list-label]:text-[11px] [&_.file-list-label]:tracking-normal [&_.file-list-label]:text-[#b7bfd1] [&_.file-list-label]:py-[9px] [&_.file-list-label]:px-[12px] [&_.file-list]:p-[5px]"
+                class="file-group flex flex-col flex-1 min-h-0 [&_+_.file-group]:border-t-[1px] [&_+_.file-group]:border-solid [&_+_.file-group]:border-t-[var(--line)] [&_.file-list-label]:bg-[var(--panel)] [&_.file-list-label]:border-b-[1px] [&_.file-list-label]:border-solid [&_.file-list-label]:border-b-[var(--line)] [&_.file-list-label]:text-[11px] [&_.file-list-label]:tracking-normal [&_.file-list-label]:text-[var(--fg-secondary)] [&_.file-list-label]:py-[9px] [&_.file-list-label]:px-[12px] [&_.file-list]:p-[5px] has-[.small-empty]:flex-[0_0_auto]"
               >
                 <div
-                  class="file-list-label flex justify-between text-[8px] tracking-[0.9px] text-[#666f81] font-semibold pt-[12px] px-[8px] pb-[9px] [&_.stage-all]:py-[2px] [&_.stage-all]:px-[6px] [&_.stage-all]:text-[10px] [&_.stage-all]:shrink-0"
+                  class="file-list-label flex text-[8px] tracking-[0.9px] text-[var(--muted)] font-semibold pt-[12px] pb-[9px] [&_.stage-all]:py-[2px] [&_.stage-all]:px-[6px] [&_.stage-all]:text-[10px] [&_.stage-all]:shrink-0 items-center justify-start gap-[8px] py-[7px]! px-[10px]! bg-[var(--bg)]! [&>span]:py-[2px] [&>span]:px-[6px] [&>span]:rounded-[4px] [&>span]:bg-[var(--raised)] [&>span]:text-[var(--muted)] [&>span]:text-[10px] [&>span]:tabular-nums [&>.stage-all]:ml-auto [&>.stage-all]:text-[var(--accent)]"
                 >
                   {{ group.label }}<span>{{ group.files.length }}</span
                   ><AppButton
@@ -2115,7 +2115,7 @@ onUnmounted(() => {
                   />
                   <div
                     v-if="!group.files.length"
-                    class="small-empty flex flex-col items-center py-[35px] px-[10px] text-[#65728b] text-center text-[11px] [&>svg]:mb-[10px]"
+                    class="small-empty flex flex-col items-center text-[11px] [&>svg]:mb-[10px] py-[20px] px-[12px] text-[var(--muted)]"
                   >
                     <Check :size="23" />
                     <p>
@@ -2130,7 +2130,7 @@ onUnmounted(() => {
               </div>
               <form
                 v-show="!chatVisible && mode !== 'branch'"
-                class="commit-form flex flex-col gap-[9px] shrink-0 py-[14px] px-[12px] border-t-[1px] border-solid border-t-[var(--line)] [&>label]:text-[12px] [&>label]:text-[#c5cfe0] [&_textarea]:w-full [&_textarea]:min-h-[100px] [&_textarea]:max-h-[240px] [&_textarea]:resize-y [&_textarea]:text-[12px] [&_textarea]:leading-[1.6]"
+                class="commit-form flex flex-col gap-[9px] shrink-0 py-[14px] px-[12px] border-t-[1px] border-solid border-t-[var(--line)] [&>label]:text-[12px] [&>label]:text-[var(--fg-secondary)] [&_textarea]:w-full [&_textarea]:min-h-[100px] [&_textarea]:max-h-[240px] [&_textarea]:resize-y [&_textarea]:text-[12px] [&_textarea]:leading-[1.6]"
                 aria-label="Commit staged changes"
                 @submit.prevent="commit"
               >
@@ -2149,7 +2149,7 @@ onUnmounted(() => {
                 >
                   <AppButton
                     type="button"
-                    class="text-button py-[3px] px-[5px] text-[11px] text-[#989fad]"
+                    class="text-button py-[3px] px-[5px] text-[11px] text-[var(--muted)]"
                     :disabled="busy || example || !snapshot.head"
                     @click="amendCommit"
                   >
@@ -2158,7 +2158,7 @@ onUnmounted(() => {
                   <AppButton
                     variant="primary"
                     type="submit"
-                    class="primary [border-color:#adbbff]"
+                    class="primary [border-color:var(--line)]"
                     :disabled="!canCommit"
                     title="Commit staged changes (Ctrl+Enter)"
                   >
@@ -2168,12 +2168,12 @@ onUnmounted(() => {
               </form>
             </section>
             <section
-              class="review-panel min-h-0 min-w-0 flex flex-col bg-[#121318]"
+              class="review-panel min-h-0 min-w-0 flex flex-col bg-[var(--bg)] border border-solid border-[var(--line)] rounded-[9px] overflow-hidden [&>.panel-heading]:bg-[var(--panel)]"
               :aria-busy="w.repositoryLoading.value || diffLoading"
             >
               <div
                 v-if="w.repositoryLoading.value"
-                class="panel-empty flex flex-col items-center justify-center text-center gap-[16px] py-[35px] px-[24px] text-[#7c879d] flex-1 [&_p]:text-[12px] [&_p]:leading-[1.8] [&_p]:max-w-[300px] [&_h3]:text-[#c1c9dc]"
+                class="panel-empty flex flex-col items-center justify-center text-center gap-[16px] py-[35px] px-[24px] text-[var(--muted)] flex-1 [&_p]:text-[12px] [&_p]:leading-[1.8] [&_p]:max-w-[300px] [&_h3]:text-[var(--fg-secondary)]"
                 role="status"
               >
                 <LoaderCircle :size="24" class="spin animate-spin" />
@@ -2181,7 +2181,7 @@ onUnmounted(() => {
               </div>
               <template v-else-if="selected"
                 ><div
-                  class="file-heading flex items-center gap-[9px] py-[8px] px-[12px] border-b-[1px] border-solid border-b-[var(--line)] min-h-[var(--review-heading-height)] [&>svg]:text-[#8694b4] [&>span:first-of-type]:font-[Consolas,_monospace] [&>span:first-of-type]:text-[11px] [&>span:first-of-type]:flex-1 [&>span:first-of-type]:overflow-hidden [&>span:first-of-type]:text-ellipsis [&>span:first-of-type]:whitespace-nowrap [@media(max-width:1250px)]:gap-[6px] [@media(max-width:1250px)]:[&>span:first-of-type]:text-[10px] h-[var(--review-heading-height)]"
+                  class="file-heading flex items-center gap-[9px] py-[8px] px-[12px] border-b-[1px] border-solid border-b-[var(--line)] min-h-[var(--review-heading-height)] [&>svg]:text-[var(--muted)]  [&>span:first-of-type]:flex-1 [&>span:first-of-type]:overflow-hidden [&>span:first-of-type]:whitespace-nowrap [@media(max-width:1250px)]:gap-[6px] [@media(max-width:1250px)]:[&>span:first-of-type]:text-[10px] h-[var(--review-heading-height)] bg-[var(--panel)] [&>span:first-of-type]:[font-family:inherit] [&>span:first-of-type]:text-[12px]! [&>span:first-of-type]:text-[var(--fg)]"
                 >
                   <FileCode2 :size="15" /><span :title="selected">{{
                     selected
@@ -2194,7 +2194,7 @@ onUnmounted(() => {
                     >−{{ deletions }}</span
                   ><AppButton
                     v-if="mode !== 'branch' && !selectedFile?.conflict"
-                    class="secondary small bg-[#22252e] [border-color:#30343f] text-[#c9d0e3] text-[11px] py-[4px] px-[7px] rounded-[4px]"
+                    class="secondary small bg-[var(--raised)] [border-color:var(--line)] text-[var(--fg-secondary)] text-[11px] py-[4px] px-[7px] rounded-[4px]"
                     :disabled="
                       busy || example || !selected
                     "
@@ -2206,24 +2206,24 @@ onUnmounted(() => {
                   ><AppButton
                     variant="primary"
                     v-if="selectedFile?.conflict"
-                    class="primary small [border-color:#30343f] text-[11px] py-[4px] px-[7px] rounded-[4px]"
+                    class="primary small [border-color:var(--line)] text-[11px] py-[4px] px-[7px] rounded-[4px]"
                     @click="openConflict"
                   >
                     Resolve conflict
                   </AppButton>
                 </div>
                 <div
-                  class="file-tools flex justify-between items-center py-[5px] px-[12px] text-[#6e788b] text-[10px] bg-[#15171d] border-b-[1px] border-solid border-b-[#232630] [&>div]:flex [&>div]:items-center [&>div]:gap-[6px] [&_.text-button]:text-[10px]"
+                  class="file-tools flex justify-between items-center py-[5px] px-[12px] bg-[var(--panel)] border-b-[1px] border-solid border-b-[var(--line)] [&>div]:flex [&>div]:items-center [&>div]:gap-[6px] text-[var(--muted)] text-[11px] [&_.text-button]:text-[var(--muted)] [&_.text-button]:text-[11px]"
                 >
                   <span>File changes</span>
                   <div>
                     <AppButton
-                      class="text-button py-[3px] px-[5px] text-[11px] text-[#989fad]"
+                      class="text-button py-[3px] px-[5px] text-[11px] text-[var(--muted)]"
                       @click="showFileInfo('history')"
                     >
                       File history</AppButton
                     ><AppButton
-                      class="text-button py-[3px] px-[5px] text-[11px] text-[#989fad]"
+                      class="text-button py-[3px] px-[5px] text-[11px] text-[var(--muted)]"
                       @click="showFileInfo('blame')"
                     >
                       Blame</AppButton
@@ -2254,10 +2254,10 @@ onUnmounted(() => {
               /></template>
               <div
                 v-else
-                class="panel-empty clean-state flex flex-col items-center justify-center text-center gap-[16px] py-[35px] px-[24px] text-[#7c879d] flex-1 [&_p]:text-[12px] [&_p]:leading-[1.8] [&_p]:max-w-[300px] [&_h3]:text-[#c1c9dc]"
+                class="panel-empty clean-state flex flex-col items-center justify-center text-center gap-[16px] py-[35px] px-[24px] text-[var(--muted)] flex-1 [&_p]:text-[12px] [&_p]:leading-[1.8] [&_p]:max-w-[300px] [&_h3]:text-[var(--fg-secondary)]"
               >
                 <div
-                  class="empty-orbit flex items-center justify-center w-[64px] h-[64px] rounded-[17px] border-[1px] border-solid border-[#303747] [background:linear-gradient(135deg,_#242a38,_#181c26)] text-[#a4b5e1] shadow-[0_5px_20px_#0002]"
+                  class="empty-orbit flex items-center justify-center w-[64px] h-[64px] rounded-[17px] border-[1px] border-solid border-[var(--line)] [background:linear-gradient(135deg,_#242a38,_#181c26)] text-[var(--accent)] shadow-[0_5px_20px_#0002] [[data-theme=daylight]_&]:bg-[var(--raised)]"
                 >
                   <Check :size="25" />
                 </div>
@@ -2283,7 +2283,7 @@ onUnmounted(() => {
         </template>
         <template v-else-if="view === 'history'"
           ><div
-            class="changes-title flex items-center justify-between py-[10px] px-[16px] gap-[12px] [&_p]:text-[10px] [&_p]:text-[#747b8b] [&_p]:mt-[3px] [@media(min-width:1650px)]:py-[10px] [@media(min-width:1650px)]:px-[16px] [@media(max-width:1250px)]:py-[10px] [@media(max-width:1250px)]:px-[16px] [&_h1]:text-[13px] [&_h1]:tracking-normal h-[var(--pane-heading-height)] min-h-[var(--pane-heading-height)] shrink-0 border-b-[1px] border-solid border-b-[var(--line)]"
+            class="changes-title flex items-center justify-between py-[10px] px-[16px] gap-[12px] [&_p]:text-[10px] [&_p]:text-[var(--muted)] [&_p]:mt-[3px] [@media(min-width:1650px)]:py-[10px] [@media(min-width:1650px)]:px-[16px] [@media(max-width:1250px)]:py-[10px] [@media(max-width:1250px)]:px-[16px] [&_h1]:text-[13px] [&_h1]:tracking-normal h-[var(--pane-heading-height)] min-h-[var(--pane-heading-height)] shrink-0 border-b-[1px] border-b-[var(--line)] bg-[var(--panel)] border border-solid border-[var(--line)] rounded-[9px] mb-[8px]"
           >
             <div>
               <h1
@@ -2294,7 +2294,7 @@ onUnmounted(() => {
             </div>
             <AppButton v-if="w.historyBranch.value" @click="w.filterHistory()">Clear branch filter</AppButton>
             <form
-              class="search-field flex items-center gap-[7px] border-[1px] border-solid border-[#2d3544] rounded-[6px] py-0 px-[8px] text-[#6f7c95] [&_input]:border-0 [&_input]:bg-transparent [&_input]:text-[11px] [&_input]:py-[7px] [&_input]:px-0 [&_input]:w-[185px] [&_input]:shadow-[none]"
+              class="search-field flex items-center gap-[7px] border-[1px] border-solid border-[var(--line)] rounded-[6px] py-0 px-[8px] text-[var(--muted)] [&_input]:border-0 [&_input]:bg-transparent [&_input]:text-[11px] [&_input]:py-[7px] [&_input]:px-0 [&_input]:w-[185px] [&_input]:shadow-[none]"
               @submit.prevent="w.searchHistory()"
             >
               <Search :size="15" /><AppInput
@@ -2315,7 +2315,7 @@ onUnmounted(() => {
           />
           <div
             id="commit-details"
-            class="commit-detail flex flex-col [height:var(--details-height,_44%)] min-h-[170px] border-t-[1px] border-solid border-t-[#34405a] [&_.panel-heading]:min-h-[45px] [&_.panel-heading]:py-[8px] [&_.panel-heading]:px-[15px] relative shrink-0 bg-[#15171d]"
+            class="commit-detail flex flex-col [height:var(--details-height,_44%)] min-h-[170px] border-t-[1px] border-solid border-t-[var(--line)] [&_.panel-heading]:min-h-[45px] [&_.panel-heading]:py-[8px] [&_.panel-heading]:px-[15px] relative shrink-0 bg-[var(--panel)]"
           >
             <ResizeHandle
               v-model="preferredDetailsHeight"
@@ -2328,12 +2328,12 @@ onUnmounted(() => {
               reverse
             />
             <div
-              class="detail-tabs flex border-b-[1px] border-solid border-b-[var(--line)] min-h-[35px] [&_button]:rounded-none [&_button]:py-[8px] [&_button]:px-[20px] [&_button]:text-[11px] [&_button]:text-[#8993a8] [&_button.active]:text-[#b5c5ff] [&_button.active]:border-b-[2px] [&_button.active]:border-solid [&_button.active]:border-b-[#95a9ef] [&_button.active]:bg-[#222836]"
+              class="detail-tabs flex border-b-[1px] border-solid border-b-[var(--line)] min-h-[35px] [&_button]:rounded-none [&_button]:py-[8px] [&_button]:px-[20px] [&_button]:text-[11px] [&_button]:text-[var(--muted)] [&_button.active]:text-[var(--fg)] [&_button.active]:border-b-[2px] [&_button.active]:border-solid [&_button.active]:border-b-[var(--accent)] [&_button.active]:bg-[var(--selection)]"
               role="tablist"
               aria-label="Commit details"
             >
               <AppButton
-                class="[.segmented_button&.active]:bg-[#292d38] [.segmented_button&.active]:text-[#d1d8ed] [.segmented_button&.active]:shadow-[0_1px_3px_#0004]"
+                class="[.segmented_button&.active]:bg-[var(--hover)] [.segmented_button&.active]:text-[var(--fg)] [.segmented_button&.active]:shadow-[0_1px_3px_#0004]"
                 v-for="tab in ['commit', 'changes']"
                 :key="tab"
                 role="tab"
@@ -2346,7 +2346,7 @@ onUnmounted(() => {
             </div>
             <template v-if="selectedCommit">
               <div
-                class="panel-heading flex items-center justify-between gap-[10px] border-b-[1px] border-solid border-b-[var(--line)] py-[12px] px-[15px] min-h-[54px] text-[11px] [&>span]:flex [&>span]:items-center [&>span]:gap-[8px] [&>span]:min-w-0 [&>span]:overflow-hidden [&>span]:text-ellipsis [&>span]:whitespace-nowrap [&>span]:text-[#c2cadd] [&_svg]:text-[#8c98b1]"
+                class="panel-heading flex items-center justify-between gap-[10px] border-b-[1px] border-solid border-b-[var(--line)] py-[12px] px-[15px] min-h-[54px] text-[11px] [&>span]:flex [&>span]:items-center [&>span]:gap-[8px] [&>span]:min-w-0 [&>span]:overflow-hidden [&>span]:text-ellipsis [&>span]:whitespace-nowrap [&>span]:text-[var(--fg-secondary)] [&_svg]:text-[var(--muted)]"
               >
                 <span
                   ><GitCommitHorizontal :size="15" />{{
@@ -2355,19 +2355,19 @@ onUnmounted(() => {
                 >
                 <div class="button-row flex items-center gap-[5px]">
                   <AppButton
-                    class="small text-[11px] py-[4px] px-[7px] [border-color:#30343f] rounded-[4px]"
+                    class="small text-[11px] py-[4px] px-[7px] [border-color:var(--line)] rounded-[4px]"
                     :disabled="example"
                     @click="ask('cherry-pick', { target: selectedCommit.id })"
                   >
                     Cherry-pick</AppButton
                   ><AppButton
-                    class="small text-[11px] py-[4px] px-[7px] [border-color:#30343f] rounded-[4px]"
+                    class="small text-[11px] py-[4px] px-[7px] [border-color:var(--line)] rounded-[4px]"
                     :disabled="example"
                     @click="ask('revert', { target: selectedCommit.id })"
                   >
                     Revert</AppButton
                   ><AppButton
-                    class="small text-[11px] py-[4px] px-[7px] [border-color:#30343f] rounded-[4px]"
+                    class="small text-[11px] py-[4px] px-[7px] [border-color:var(--line)] rounded-[4px]"
                     :disabled="example"
                     @click="ask('reset', { target: selectedCommit.id })"
                   >
@@ -2377,13 +2377,13 @@ onUnmounted(() => {
               </div>
               <div
                 v-if="historyTab === 'commit'"
-                class="commit-metadata overflow-auto py-[18px] px-[24px] text-[12px] [&_dl]:grid [&_dl]:grid-cols-[60px_minmax(0,_1fr)] [&_dl]:gap-[8px] [&_dl]:my-[18px] [&_dl]:mx-0 [&_dl]:text-[11px] [&_dt]:text-[#818da5] [&_dd]:m-0 [&_dd]:[overflow-wrap:anywhere] [&_p]:border-t-[1px] [&_p]:border-solid [&_p]:border-t-[var(--line)] [&_p]:pt-[15px]"
+                class="commit-metadata overflow-auto py-[18px] px-[24px] text-[12px] [&_dl]:grid [&_dl]:grid-cols-[60px_minmax(0,_1fr)] [&_dl]:gap-[8px] [&_dl]:my-[18px] [&_dl]:mx-0 [&_dl]:text-[11px] [&_dt]:text-[var(--muted)] [&_dd]:m-0 [&_dd]:[overflow-wrap:anywhere] [&_p]:border-t-[1px] [&_p]:border-solid [&_p]:border-t-[var(--line)] [&_p]:pt-[15px]"
               >
                 <div
-                  class="commit-identity flex items-center gap-[12px] [&>div]:flex [&>div]:flex-col [&>div]:gap-[4px] [&_small]:text-[9px] [&_small]:text-[#818da5] [&_strong]:font-medium [&_div>span]:text-[#818da5] [&_div>span]:text-[10px]"
+                  class="commit-identity flex items-center gap-[12px] [&>div]:flex [&>div]:flex-col [&>div]:gap-[4px] [&_small]:text-[9px] [&_small]:text-[var(--muted)] [&_strong]:font-medium [&_div>span]:text-[var(--muted)] [&_div>span]:text-[10px]"
                 >
                   <span
-                    class="author-avatar grid place-items-center w-[38px] h-[38px] rounded-[8px] bg-[#344263] text-[#c4d1fc]"
+                    class="author-avatar grid place-items-center w-[38px] h-[38px] rounded-[8px] bg-[var(--selection)] text-[var(--fg)]"
                     >{{ selectedCommit.author.slice(0, 2).toUpperCase() }}</span
                   >
                   <div>
@@ -2422,7 +2422,7 @@ onUnmounted(() => {
             </template>
             <div
               v-else
-              class="panel-empty flex flex-col items-center justify-center text-center gap-[16px] py-[35px] px-[24px] text-[#7c879d] flex-1 [&_p]:text-[12px] [&_p]:leading-[1.8] [&_p]:max-w-[300px] [&_h3]:text-[#c1c9dc]"
+              class="panel-empty flex flex-col items-center justify-center text-center gap-[16px] py-[35px] px-[24px] text-[var(--muted)] flex-1 [&_p]:text-[12px] [&_p]:leading-[1.8] [&_p]:max-w-[300px] [&_h3]:text-[var(--fg-secondary)]"
             >
               <GitCommitHorizontal :size="24" />
               <p>Select a commit to inspect its details and changes.</p>
@@ -2431,7 +2431,7 @@ onUnmounted(() => {
         >
         <template v-else
           ><div
-            class="changes-title flex items-center justify-between py-[10px] px-[16px] gap-[12px] [&_p]:text-[10px] [&_p]:text-[#747b8b] [&_p]:mt-[3px] [@media(min-width:1650px)]:py-[10px] [@media(min-width:1650px)]:px-[16px] [@media(max-width:1250px)]:py-[10px] [@media(max-width:1250px)]:px-[16px] [&_h1]:text-[13px] [&_h1]:tracking-normal h-[var(--pane-heading-height)] min-h-[var(--pane-heading-height)] shrink-0 border-b-[1px] border-solid border-b-[var(--line)]"
+            class="changes-title flex items-center justify-between py-[10px] px-[16px] gap-[12px] [&_p]:text-[10px] [&_p]:text-[var(--muted)] [&_p]:mt-[3px] [@media(min-width:1650px)]:py-[10px] [@media(min-width:1650px)]:px-[16px] [@media(max-width:1250px)]:py-[10px] [@media(max-width:1250px)]:px-[16px] [&_h1]:text-[13px] [&_h1]:tracking-normal h-[var(--pane-heading-height)] min-h-[var(--pane-heading-height)] shrink-0 border-b-[1px] border-b-[var(--line)] bg-[var(--panel)] border border-solid border-[var(--line)] rounded-[9px] mb-[8px]"
           >
             <div>
               <h1
@@ -2445,7 +2445,7 @@ onUnmounted(() => {
             </div>
           </div>
           <div
-            class="reflog-list flex-1 overflow-auto py-0 px-[15px] [&>button]:flex [&>button]:w-full [&>button]:justify-start [&>button]:text-left [&>button]:border-b-[1px] [&>button]:border-solid [&>button]:border-b-[#293042] [&>button]:rounded-none [&>button]:py-[13px] [&>button]:px-[7px] [&>button]:gap-[12px] [&>button]:text-[11px] [&>button>code]:text-[#9bacd3] [&>button>span:first-of-type]:flex-1 [&>button>span:first-of-type]:whitespace-normal [&>button>.text-button]:flex [&>button>.text-button]:items-center [&>button>.text-button]:gap-[6px] [&>button>.text-button]:text-[#768cbb]"
+            class="reflog-list flex-1 overflow-auto py-0 px-[15px] [&>button]:flex [&>button]:w-full [&>button]:justify-start [&>button]:text-left [&>button]:border-b-[1px] [&>button]:border-solid [&>button]:border-b-[var(--line)] [&>button]:rounded-none [&>button]:py-[13px] [&>button]:px-[7px] [&>button]:gap-[12px] [&>button]:text-[11px] [&>button>code]:text-[var(--fg-secondary)] [&>button>span:first-of-type]:flex-1 [&>button>span:first-of-type]:whitespace-normal [&>button>.text-button]:flex [&>button>.text-button]:items-center [&>button>.text-button]:gap-[6px] [&>button>.text-button]:text-[var(--muted)]"
           >
             <AppButton
               v-for="line in reflog.trim().split('\n').filter(Boolean)"
@@ -2457,7 +2457,7 @@ onUnmounted(() => {
                 >{{ line.split("\t")[0]?.slice(0, 8) }}</code
               ><span>{{ line.split("\t").slice(1).join(" · ") }}</span
               ><span
-                class="text-button py-[3px] px-[5px] text-[11px] text-[#989fad]"
+                class="text-button py-[3px] px-[5px] text-[11px] text-[var(--muted)]"
                 >Recover branch<ArrowUpRight :size="13"
               /></span>
             </AppButton></div
@@ -2465,14 +2465,14 @@ onUnmounted(() => {
       </template>
       <div
         v-else
-        class="welcome flex flex-col items-center justify-center flex-1 p-[40px] text-center [background:radial-gradient(ellipse_at_50%_38%,_#1b213455,_transparent_65%)] [&_h1]:text-[30px] [&_h1]:tracking-[-1.2px] [&_h1]:text-[#d9e3fb] [&_h1]:[font-weight:550] [&_p]:text-[12px] [&_p]:leading-[1.9] [&_p]:text-[#788aaa] [&_p]:mt-[17px] [&_p]:mx-0 [&_p]:mb-[27px] [@media(max-width:1250px)]:[&_h1]:text-[26px]"
+        class="welcome flex flex-col items-center justify-center flex-1 p-[40px] text-center [background:radial-gradient(ellipse_at_50%_38%,_#1b213455,_transparent_65%)] [&_h1]:text-[30px] [&_h1]:tracking-[-1.2px] [&_h1]:text-[var(--fg)] [&_h1]:[font-weight:550] [&_p]:text-[12px] [&_p]:leading-[1.9] [&_p]:text-[var(--muted)] [&_p]:mt-[17px] [&_p]:mx-0 [&_p]:mb-[27px] [@media(max-width:1250px)]:[&_h1]:text-[26px]"
       >
         <div
-          class="welcome-mark h-[85px] w-[85px] flex items-center justify-center border-[1px] border-solid border-[#3b4663] rounded-[23px] text-[#acbdf9] [background:linear-gradient(145deg,_#2b3450,_#171d2c)] shadow-[0_10px_45px_#0003] mb-[32px]"
+          class="welcome-mark h-[85px] w-[85px] flex items-center justify-center border-[1px] border-solid border-[var(--line)] rounded-[23px] text-[var(--accent)] [background:linear-gradient(145deg,_#2b3450,_#171d2c)] shadow-[0_10px_45px_#0003] mb-[32px] [[data-theme=daylight]_&]:bg-[var(--raised)]"
         >
           <GitBranch :size="38" />
         </div>
-        <span class="eyebrow text-[9px] tracking-[2px] text-[#687fa9] mb-[15px]"
+        <span class="eyebrow text-[9px] tracking-[2px] text-[var(--muted)] mb-[15px]"
           >A CLEARER VIEW OF YOUR WORK</span
         >
         <h1
@@ -2487,12 +2487,12 @@ onUnmounted(() => {
         <p>
           Choose <strong>Repositories → Open repository</strong> to get
           started.<br /><kbd
-            class="[:where(&)]:font-['Cascadia_Code',_'JetBrains_Mono',_Consolas,_monospace] [:where(&)]:text-[10px] [:where(&)]:text-[#777d8a] [:where(&)]:font-normal [:where(&)]:whitespace-nowrap"
+            class="[:where(&)]:font-['Cascadia_Code',_'JetBrains_Mono',_Consolas,_monospace] [:where(&)]:text-[10px] [:where(&)]:text-[var(--muted)] [:where(&)]:font-normal [:where(&)]:whitespace-nowrap"
             >Ctrl O</kbd
           >
         </p>
         <div
-          class="welcome-features flex gap-[25px] border-t-[1px] border-solid border-t-[#293248] py-[23px] px-[10px] text-[#60759d] text-[10px] [&>span]:flex [&>span]:items-center [&>span]:gap-[7px] [@media(max-width:1250px)]:gap-[12px] [@media(max-width:1250px)]:flex-wrap [@media(max-width:1250px)]:justify-center"
+          class="welcome-features flex gap-[25px] border-t-[1px] border-solid border-t-[var(--line)] py-[23px] px-[10px] text-[var(--muted)] text-[10px] [&>span]:flex [&>span]:items-center [&>span]:gap-[7px] [@media(max-width:1250px)]:gap-[12px] [@media(max-width:1250px)]:flex-wrap [@media(max-width:1250px)]:justify-center"
         >
           <span><GitCommitHorizontal :size="16" />Thoughtful commits</span
           ><span><Layers :size="16" />Parallel worktrees</span
@@ -2501,7 +2501,7 @@ onUnmounted(() => {
       </div>
       <div
         v-if="busy || notice"
-        class="workspace-status flex items-center gap-[8px] py-[5px] px-[12px] min-h-[34px] shrink-0 border-t-[1px] border-solid border-t-[var(--line)] text-[#a3aec3] text-[11px] bg-[#12151c] mt-auto [&>span]:flex-1 [&>span]:min-w-0 [&>span]:[overflow-wrap:anywhere] [&>span]:whitespace-pre-wrap [&>span]:max-h-[80px] [&>span]:overflow-auto [&>span]:leading-[1.5]"
+        class="workspace-status flex items-center gap-[8px] py-[5px] px-[12px] min-h-[34px] shrink-0 border-t-[1px] border-solid border-t-[var(--line)] text-[var(--fg-secondary)] text-[11px] bg-[var(--panel)] mt-auto [&>span]:flex-1 [&>span]:min-w-0 [&>span]:[overflow-wrap:anywhere] [&>span]:whitespace-pre-wrap [&>span]:max-h-[80px] [&>span]:overflow-auto [&>span]:leading-[1.5]"
         role="status"
       >
         <LoaderCircle v-if="busy" :size="14" class="spin animate-spin" />
@@ -2519,6 +2519,7 @@ onUnmounted(() => {
       </div>
     </main>
     <ContextMenu ref="sidebarMenu" @error="error = $event" />
+    <AppSettings v-if="settingsOpen" :theme="theme" :error="themeError" @theme="setTheme" @close="settingsOpen = false" />
     <Teleport to="body">
       <CloseChatDialog
         v-if="closingChat"
@@ -2576,7 +2577,7 @@ onUnmounted(() => {
             ><AppButton
               variant="primary"
               type="submit"
-              class="primary [border-color:#adbbff]"
+              class="primary [border-color:var(--line)]"
               :disabled="w.nameSaving.value"
             >
               Save
@@ -2615,7 +2616,7 @@ onUnmounted(() => {
           <p>{{ dialogDescription }}</p>
           <div
             v-if="activeAgents.length"
-            class="agent-warning flex items-start gap-[10px] border-[1px] border-solid border-[#675638] bg-[#302b22] p-[12px] rounded-[6px] text-[#d1b784] text-[11px] [&_p]:text-[10px] [&_p]:leading-[1.7] [&_p]:my-[7px] [&_p]:mx-0"
+            class="agent-warning flex items-start gap-[10px] border-[1px] border-solid border-[var(--line)] bg-[var(--warning-bg)] p-[12px] rounded-[6px] text-[var(--warning)] text-[11px] [&_p]:text-[10px] [&_p]:leading-[1.7] [&_p]:my-[7px] [&_p]:mx-0"
           >
             <AlertTriangle :size="17" />
             <div>
@@ -2627,7 +2628,7 @@ onUnmounted(() => {
                 {{ activeAgents.map((t) => t.title).join(", ") }}
               </p>
               <AppButton
-                class="small text-[11px] py-[4px] px-[7px] [border-color:#30343f] rounded-[4px]"
+                class="small text-[11px] py-[4px] px-[7px] [border-color:var(--line)] rounded-[4px]"
                 @click="stopAgents"
               >
                 Stop tasks first
@@ -2666,7 +2667,7 @@ onUnmounted(() => {
                 id="reset-mode-description"
                 aria-live="polite"
                 class="text-[11px] leading-[1.7]"
-                :class="values.mode === 'hard' ? 'text-[#e4a6b0]' : 'text-[#9ba9c3]'"
+                :class="values.mode === 'hard' ? 'text-[var(--danger)]' : 'text-[var(--fg-secondary)]'"
               >{{ resetModeDescriptions[values.mode ?? 'mixed'] }}</span>
             </label>
             <label v-if="dialog === 'branch-delete'" class="force-option">
@@ -2708,7 +2709,7 @@ onUnmounted(() => {
             </AppHint>
             <div
               v-if="rebaseCommits.length"
-              class="rebase-list mt-[20px] [&>div]:flex [&>div]:gap-[8px] [&>div]:items-center [&>div]:border-b-[1px] [&>div]:border-solid [&>div]:border-b-[#30394a] [&>div]:py-[8px] [&>div]:px-0 [&>div]:text-[11px] [&_[role=combobox]]:w-[125px] [&_[role=combobox]]:text-[11px] [&_[role=combobox]]:p-[6px] [&_code]:text-[10px] [&_code]:text-[#7388b5] [&_span]:flex-1 [&_span]:overflow-hidden [&_span]:text-ellipsis [&_span]:whitespace-nowrap"
+              class="rebase-list mt-[20px] [&>div]:flex [&>div]:gap-[8px] [&>div]:items-center [&>div]:border-b-[1px] [&>div]:border-solid [&>div]:border-b-[var(--line)] [&>div]:py-[8px] [&>div]:px-0 [&>div]:text-[11px] [&_[role=combobox]]:w-[125px] [&_[role=combobox]]:text-[11px] [&_[role=combobox]]:p-[6px] [&_code]:text-[10px] [&_code]:text-[var(--muted)] [&_span]:flex-1 [&_span]:overflow-hidden [&_span]:text-ellipsis [&_span]:whitespace-nowrap"
             >
               <div v-for="(commit, i) in rebaseCommits" :key="commit.id">
                 <AppSelect
@@ -2748,7 +2749,7 @@ onUnmounted(() => {
             </div>
             <div
               v-if="dialogError"
-              class="inline-error text-[#e4a6b0] bg-[#472b343f] py-[10px] px-[12px] text-[11px] leading-[1.7] whitespace-pre-wrap [overflow-wrap:anywhere]"
+              class="inline-error text-[var(--danger)] bg-[var(--danger-bg)] py-[10px] px-[12px] text-[11px] leading-[1.7] whitespace-pre-wrap [overflow-wrap:anywhere]"
             >
               {{ dialogError }}
             </div>
@@ -2758,7 +2759,7 @@ onUnmounted(() => {
               ><AppButton
                 variant="primary"
                 type="submit"
-                class="primary [border-color:#adbbff] [&.danger]:bg-[#d78793] [&.danger]:[border-color:#e2a1aa]"
+                class="primary [border-color:var(--line)] [&.danger]:bg-[var(--danger)] [&.danger]:[border-color:var(--danger)] [&.danger]:text-[var(--bg)]"
                 :class="[
                   [
                     {
@@ -2815,7 +2816,7 @@ onUnmounted(() => {
             </AppButton>
           </AppDialogHeader>
           <pre
-            class="output-content text-[11px] max-h-[65vh] overflow-auto text-[#afbdd8] [:where(&)]:font-['Cascadia_Code',_'JetBrains_Mono',_Consolas,_monospace] [:where(&)]:whitespace-pre-wrap [:where(&)]:[word-break:break-word] [:where(&)]:leading-[1.7]"
+            class="output-content text-[11px] max-h-[65vh] overflow-auto text-[var(--fg-secondary)] [:where(&)]:font-['Cascadia_Code',_'JetBrains_Mono',_Consolas,_monospace] [:where(&)]:whitespace-pre-wrap [:where(&)]:[word-break:break-word] [:where(&)]:leading-[1.7]"
             >{{ output }}</pre>
         </AppDialogPanel>
       </AppDialog>

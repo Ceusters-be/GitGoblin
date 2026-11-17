@@ -236,7 +236,7 @@ function toggle(path: string) {
 <template>
   <div
     v-if="picked.size > 1"
-    class="selection-actions sticky top-0 z-[1] flex items-center justify-between py-[3px] px-[5px] text-[10px] bg-[#1b202b] text-[#b7c5df] [&_button]:text-[10px] [&_button]:py-[3px] [&_button]:px-[6px]"
+    class="selection-actions sticky top-0 z-[1] flex items-center justify-between py-[3px] px-[5px] text-[10px] bg-[var(--raised)] text-[var(--fg-secondary)] [&_button]:text-[10px] [&_button]:py-[3px] [&_button]:px-[6px]"
   >
     <span>{{ picked.size }} selected</span
     ><AppButton
@@ -259,7 +259,7 @@ function toggle(path: string) {
       @contextmenu="openMenu($event, row)"
     >
       <AppButton
-        class="compact-file-row transition-none [.segmented_button&.active]:bg-[#292d38] [.segmented_button&.active]:text-[#d1d8ed] [.segmented_button&.active]:shadow-[0_1px_3px_#0004] flex-1 min-w-0 flex w-full min-h-[25px] h-[25px] py-[3px] px-[8px] gap-[6px] text-left justify-start rounded-[4px] text-[11px] [&.active]:bg-[#252a39] [&.active]:text-[#d3dffa] [&>svg]:text-[#7c8bb0] [&.folder]:text-[#a5aebf]"
+        class="compact-file-row transition-none [.segmented_button&.active]:bg-[var(--hover)] [.segmented_button&.active]:text-[var(--fg)] [.segmented_button&.active]:shadow-[0_1px_3px_#0004] flex-1 min-w-0 flex w-full min-h-[25px] h-[25px] py-[3px] px-[8px] gap-[6px] text-left justify-start rounded-[4px] [&.folder]:text-[var(--fg-secondary)] text-[var(--fg-secondary)] text-[12px] [&.active]:bg-[var(--selection)] [&.active]:text-[var(--fg)] [&>svg]:text-[var(--muted)] [&.folder>svg:last-of-type]:text-[var(--accent)]"
         :class="[
           { active: row.file && picked.has(row.path), folder: !row.file },
         ]"
@@ -296,20 +296,20 @@ function toggle(path: string) {
           >{{ row.name }}</span
         >
         <small
-          class="flex-1 min-w-0 overflow-hidden text-ellipsis text-[9px] text-[#717b91] [:where(&)]:text-[11px]"
+          class="flex-1 min-w-0 overflow-hidden text-ellipsis text-[9px] text-[var(--muted)] [:where(&)]:text-[11px]"
           v-if="!tree && row.path.includes('/')"
           >{{ row.path.slice(0, row.path.lastIndexOf("/")) }}</small
         >
         <span
           v-if="row.file"
-          class="file-status font-[inherit] text-[9px] text-[#c1a778] [&.added]:text-[#a0e7ba] [&.conflicted]:text-[#ffafb8] ml-auto shrink-0 py-[2px] px-[5px] rounded-[4px] font-semibold leading-[14px] [&.added]:bg-[#23834b35] [&.removed]:text-[#ffafb8] [&.removed]:bg-[#c7435135] [&.modified]:text-[#edcc8e] [&.modified]:bg-[#b4862530] [&.renamed]:text-[#b5c8ff] [&.renamed]:bg-[#6a85ce30] [&.conflicted]:bg-[#c7435145]"
+          class="file-status font-[inherit] text-[9px] text-[var(--warning)] [&.added]:text-[var(--success)] [&.conflicted]:text-[var(--danger)] ml-auto shrink-0 py-[2px] px-[5px] rounded-[4px] font-semibold leading-[14px] [&.added]:bg-[var(--success-bg)] [&.removed]:text-[var(--danger)] [&.removed]:bg-[var(--danger-bg)] [&.modified]:text-[var(--warning)] [&.modified]:bg-[var(--warning-bg)] [&.renamed]:text-[var(--fg)] [&.renamed]:bg-[var(--selection)] [&.conflicted]:bg-[var(--danger-bg)]"
           :class="fileChange(row.file, mode).kind"
           >{{ fileChange(row.file, mode).label }}</span
         >
       </AppButton>
       <AppButton
         v-if="!row.file && mode !== 'branch'"
-        class="folder-stage shrink-0 py-[2px] px-[5px] text-[9px] text-[#93a4c9] mr-[3px]"
+        class="folder-stage shrink-0 py-[2px] px-[5px] text-[9px] mr-[3px] opacity-0 text-[var(--accent)] [.file-entry:hover>&]:opacity-100 [.file-entry:focus-within>&]:opacity-100 [@media(hover:none)]:opacity-100"
         :disabled="!editable"
         :aria-label="`${mode === 'staged' ? 'Unstage' : 'Stage'} folder ${row.path}`"
         @click="$emit('toggleFolder', row.path)"

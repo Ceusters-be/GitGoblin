@@ -66,7 +66,7 @@ onUnmounted(() => {
     <label
       >Find in Azure DevOps
       <div
-        class="ticket-search flex items-center gap-[8px] [&_svg]:text-[#9eadc8] [&_input]:flex-1 [&_input]:min-w-0"
+        class="ticket-search flex items-center gap-[8px] [&_svg]:text-[var(--fg-secondary)] [&_input]:flex-1 [&_input]:min-w-0"
       >
         <Search :size="15" /><AppInput
           v-model="query"
@@ -81,28 +81,28 @@ onUnmounted(() => {
     </label>
     <p
       v-if="loading"
-      class="ticket-status flex items-center gap-[7px] my-[8px] mx-0 text-[#9eadc8] text-[11px] leading-[1.6]"
+      class="ticket-status flex items-center gap-[7px] my-[8px] mx-0 text-[var(--fg-secondary)] text-[11px] leading-[1.6]"
       role="status"
     >
       <LoaderCircle :size="13" class="spin animate-spin" />Finding tickets…
     </p>
     <p
       v-else-if="error"
-      class="ticket-status flex items-center gap-[7px] my-[8px] mx-0 text-[#9eadc8] text-[11px] leading-[1.6]"
+      class="ticket-status flex items-center gap-[7px] my-[8px] mx-0 text-[var(--fg-secondary)] text-[11px] leading-[1.6]"
       role="status"
     >
       {{ error }}
     </p>
     <template v-else-if="results">
       <p
-        class="ticket-status flex items-center gap-[7px] my-[8px] mx-0 text-[#9eadc8] text-[11px] leading-[1.6]"
+        class="ticket-status flex items-center gap-[7px] my-[8px] mx-0 text-[var(--fg-secondary)] text-[11px] leading-[1.6]"
       >
         {{ query.trim() ? "Search results" : "Your active tickets" }} ·
         {{ results.project }}
       </p>
       <div
         v-if="results.tickets.length"
-        class="ticket-results max-h-[175px] overflow-auto border-[1px] border-solid border-[#35405a] rounded-[6px] [&_button]:w-full [&_button]:justify-start [&_button]:items-start [&_button]:text-left [&_button]:p-[10px] [&_button]:gap-[10px] [&_button]:whitespace-normal [&_button_+_button]:border-t-[1px] [&_button_+_button]:border-solid [&_button_+_button]:border-t-[#282e3c] [&_button_+_button]:rounded-none [&_button[aria-pressed='true']]:bg-[#27334b]"
+        class="ticket-results max-h-[175px] overflow-auto border-[1px] border-solid border-[var(--line)] rounded-[6px] [&_button]:w-full [&_button]:justify-start [&_button]:items-start [&_button]:text-left [&_button]:p-[10px] [&_button]:gap-[10px] [&_button]:whitespace-normal [&_button_+_button]:border-t-[1px] [&_button_+_button]:border-solid [&_button_+_button]:border-t-[var(--line)] [&_button_+_button]:rounded-none [&_button[aria-pressed='true']]:bg-[var(--selection)]"
       >
         <AppButton
           v-for="ticket in results.tickets"
@@ -112,11 +112,11 @@ onUnmounted(() => {
           :aria-pressed="selected === ticket.url"
           @click="emit('select', ticket)"
         >
-          <span class="ticket-number text-[#a8bbeb] text-[11px] pt-[1px]"
+          <span class="ticket-number text-[var(--accent)] text-[11px] pt-[1px]"
             >#{{ ticket.id }}</span
           >
           <span
-            class="ticket-summary flex-1 min-w-0 grid gap-[4px] [&_strong]:text-[12px] [&_strong]:font-medium [&_strong]:[overflow-wrap:anywhere] [&_small]:text-[#9eadc8] [&_small]:text-[10px]"
+            class="ticket-summary flex-1 min-w-0 grid gap-[4px] [&_strong]:text-[12px] [&_strong]:font-medium [&_strong]:[overflow-wrap:anywhere] [&_small]:text-[var(--fg-secondary)] [&_small]:text-[10px]"
             ><strong>{{ ticket.title }}</strong
             ><small class="[:where(&)]:text-[11px]">{{
               [ticket.kind, ticket.state, ticket.assignedTo]
@@ -129,13 +129,13 @@ onUnmounted(() => {
       </div>
       <p
         v-if="results.tickets.length === 30"
-        class="ticket-status flex items-center gap-[7px] my-[8px] mx-0 text-[#9eadc8] text-[11px] leading-[1.6]"
+        class="ticket-status flex items-center gap-[7px] my-[8px] mx-0 text-[var(--fg-secondary)] text-[11px] leading-[1.6]"
       >
         Showing up to 30 tickets. Refine your search to narrow the list.
       </p>
       <p
         v-if="!results.tickets.length"
-        class="ticket-status flex items-center gap-[7px] my-[8px] mx-0 text-[#9eadc8] text-[11px] leading-[1.6]"
+        class="ticket-status flex items-center gap-[7px] my-[8px] mx-0 text-[var(--fg-secondary)] text-[11px] leading-[1.6]"
       >
         {{
           query.trim()

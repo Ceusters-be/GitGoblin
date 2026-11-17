@@ -54,7 +54,7 @@ async function submit() {
 
 <template>
   <form
-    class="chat-questions my-[12px] mx-0 p-[12px] bg-[#1b1f29] border-[1px] border-solid border-[#353d4d] rounded-[8px]"
+    class="chat-questions my-[12px] mx-0 p-[12px] bg-[var(--panel)] border-[1px] border-solid border-[var(--line)] rounded-[8px]"
     aria-label="Agent questions"
     @submit.prevent="submit"
   >
@@ -72,7 +72,7 @@ async function submit() {
         :key="question.id"
         :disabled="disabled || sending || !!request.unavailableReason"
       >
-        <legend class="text-[12px] text-[#a7b6ff] font-semibold">
+        <legend class="text-[12px] text-[var(--accent)] font-semibold">
           {{ question.header }}
         </legend>
         <p
@@ -81,14 +81,14 @@ async function submit() {
           {{ question.question }}
         </p>
         <small
-          class="text-[11px] text-[#9ca8bf] leading-[1.5] [:where(&)]:text-[11px]"
+          class="text-[11px] text-[var(--fg-secondary)] leading-[1.5] [:where(&)]:text-[11px]"
           v-if="question.multiSelect"
           >Select one or more options.</small
         >
         <label
           v-for="(option, optionIndex) in question.options"
           :key="optionIndex"
-          class="question-option flex items-start gap-[8px] p-[8px] mt-[5px] border-[1px] border-solid border-[var(--line)] rounded-[5px] cursor-pointer [&:has(input:checked)]:[border-color:#8ca5e7] [&:has(input:checked)]:bg-[#27334b] [&_input]:shrink-0 [&_input]:mt-[3px] [&_span]:grid [&_span]:gap-[4px] [&_strong]:text-[12px] [&_strong]:font-medium"
+          class="question-option flex items-start gap-[8px] p-[8px] mt-[5px] border-[1px] border-solid border-[var(--line)] rounded-[5px] cursor-pointer [&:has(input:checked)]:[border-color:var(--line)] [&:has(input:checked)]:bg-[var(--selection)] [&_input]:shrink-0 [&_input]:mt-[3px] [&_span]:grid [&_span]:gap-[4px] [&_strong]:text-[12px] [&_strong]:font-medium"
         >
           <AppInput
             :type="question.multiSelect ? 'checkbox' : 'radio'"
@@ -108,7 +108,7 @@ async function submit() {
           <span
             ><strong>{{ option.label }}</strong
             ><small
-              class="text-[11px] text-[#9ca8bf] leading-[1.5] [:where(&)]:text-[11px]"
+              class="text-[11px] text-[var(--fg-secondary)] leading-[1.5] [:where(&)]:text-[11px]"
               v-if="option.description"
               >{{ option.description }}</small
             ></span
@@ -137,7 +137,7 @@ async function submit() {
       </p>
       <p
         v-if="error"
-        class="inline-error text-[#e4a6b0] bg-[#472b343f] py-[10px] px-[12px] text-[12px] leading-[1.6] whitespace-pre-wrap [overflow-wrap:anywhere] my-[8px] mx-0"
+        class="inline-error text-[var(--danger)] bg-[var(--danger-bg)] py-[10px] px-[12px] text-[12px] leading-[1.6] whitespace-pre-wrap [overflow-wrap:anywhere] my-[8px] mx-0"
         role="alert"
       >
         {{ error }}
@@ -146,7 +146,7 @@ async function submit() {
         variant="primary"
         v-if="!request.unavailableReason"
         type="submit"
-        class="primary [border-color:#adbbff] text-[12px]"
+        class="primary [border-color:var(--line)] text-[12px]"
         :disabled="disabled || sending || !answers"
       >
         {{ sending ? "Sending…" : "Submit answers" }}

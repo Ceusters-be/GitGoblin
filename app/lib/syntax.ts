@@ -3,11 +3,12 @@ import { createHighlighterCoreSync } from 'shiki/core';
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
 import csharp from 'shiki/langs/csharp.mjs';
 import darkPlus from 'shiki/themes/dark-plus.mjs';
+import lightPlus from 'shiki/themes/light-plus.mjs';
 import { parseDiffFiles, splitDiffLines } from './diff';
 import { inlineChanges, type ChangeRange } from './inline-changes';
 
 const highlighter = createLowlight(common);
-export interface SyntaxToken { text: string; classes: string; color?: string }
+export interface SyntaxToken { text: string; classes: string; color?: string; lightColor?: string }
 export type DiffSyntax = Record<number, { old?: SyntaxToken[]; next?: SyntaxToken[] }>;
 
 const languages: Record<string, string> = {
@@ -31,10 +32,10 @@ let csharpHighlighter: ReturnType<typeof createHighlighterCoreSync> | undefined;
 function codeLines(code: string, language: string): SyntaxToken[][] {
   if (language === 'csharp') {
     csharpHighlighter ??= createHighlighterCoreSync({
-      langs: [csharp], themes: [darkPlus], engine: createJavaScriptRegexEngine(),
+      langs: [csharp], themes: [darkPlus, lightPlus], engine: createJavaScriptRegexEngine(),
     });
-    return csharpHighlighter.codeToTokens(code, { lang: 'csharp', theme: 'dark-plus' }).tokens
-      .map(line => line.map(token => ({ text: token.content, classes: 'syntax-token', color: token.color })));
+    return csharpHighlighter.codeToTokensWithThemes(code, { lang: 'csharp', themes: { dark: 'dark-plus', light: 'light-plus' } })
+      .map(line => line.map(token => ({ text: token.content, classes: 'syntax-token', color: token.variants.dark!.color, lightColor: token.variants.light!.color })));
   }
   if (language === 'vue') {
     if (/<(?:script|template|style)\b/.test(code)) return codeLines(code, 'xml');

@@ -56,7 +56,7 @@ async function submit() {
     :dismissible="!submitting"
     @close="dismiss"
     ><AppDialogPanel
-      class="modal close-chat-dialog w-[470px] max-w-full max-h-[90vh] overflow-auto p-[22px] m-auto text-[#d5d7df] [&_.settle-choice]:flex [&_.settle-choice]:flex-row [&_.settle-choice]:items-center [&_.settle-choice]:gap-[12px] [&_.settle-choice]:p-[16px] [&_.settle-choice]:mt-[20px] [&_.settle-choice]:mx-0 [&_.settle-choice]:mb-[10px] [&_.settle-choice]:border-[1px] [&_.settle-choice]:border-solid [&_.settle-choice]:border-[#35405a] [&_.settle-choice]:rounded-[8px] [&_.settle-choice]:bg-[#171c26] [&_.settle-choice]:cursor-pointer [&_.settle-choice_input]:w-[18px] [&_.settle-choice_input]:h-[18px] [&_.settle-choice_input]:m-0 [&_.settle-choice_input]:shrink-0"
+      class="modal close-chat-dialog w-[470px] max-w-full max-h-[90vh] overflow-auto p-[22px] m-auto text-[var(--fg)] [&_.settle-choice]:flex [&_.settle-choice]:flex-row [&_.settle-choice]:items-center [&_.settle-choice]:gap-[12px] [&_.settle-choice]:p-[16px] [&_.settle-choice]:mt-[20px] [&_.settle-choice]:mx-0 [&_.settle-choice]:mb-[10px] [&_.settle-choice]:border-[1px] [&_.settle-choice]:border-solid [&_.settle-choice]:border-[var(--line)] [&_.settle-choice]:rounded-[8px] [&_.settle-choice]:bg-[var(--panel)] [&_.settle-choice]:cursor-pointer [&_.settle-choice_input]:w-[18px] [&_.settle-choice_input]:h-[18px] [&_.settle-choice_input]:m-0 [&_.settle-choice_input]:shrink-0"
       aria-labelledby="close-chat-title"
       aria-describedby="close-chat-description"
     >
@@ -80,7 +80,7 @@ async function submit() {
           </AppButton>
         </AppDialogHeader>
         <p
-          class="m-0 text-[12px] leading-[1.7] text-[#9eadc8] [overflow-wrap:anywhere] [&_strong]:text-[#e2e7f3]"
+          class="m-0 text-[12px] leading-[1.7] text-[var(--fg-secondary)] [overflow-wrap:anywhere] [&_strong]:text-[var(--fg)]"
           id="close-chat-description"
         >
           You’re closing <strong>{{ thread.title }}</strong
@@ -88,14 +88,14 @@ async function submit() {
         </p>
         <p
           v-if="alreadySettled"
-          class="settled-note mt-[20px] mx-0 mb-[10px] text-[12px] leading-[1.7] text-[#9eadc8] [overflow-wrap:anywhere] [&_strong]:text-[#e2e7f3] flex items-center gap-[8px]"
+          class="settled-note mt-[20px] mx-0 mb-[10px] text-[12px] leading-[1.7] text-[var(--fg-secondary)] [overflow-wrap:anywhere] [&_strong]:text-[var(--fg)] flex items-center gap-[8px]"
         >
           <CheckCheck :size="18" />This conversation is already
           {{ thread.archivedAt ? "archived" : "settled" }}.
         </p>
         <label
           v-else
-          class="settle-choice [&.enabled]:[border-color:#8ca5e7] [&.enabled]:bg-[#27334b] [&:has(input:focus-visible)]:[outline:2px_solid_#a7b6ff] [&:has(input:focus-visible)]:outline-offset-[3px] [&>span:first-of-type]:grid [&>span:first-of-type]:gap-[5px] [&>span:first-of-type]:flex-1 [&_strong]:text-[13px] [&_strong]:text-[#e2e7f3] [&_small]:leading-[1.6]"
+          class="settle-choice [&.enabled]:[border-color:var(--line)] [&.enabled]:bg-[var(--selection)] [&:has(input:focus-visible)]:[outline:2px_solid_var(--accent)] [&:has(input:focus-visible)]:outline-offset-[3px] [&>span:first-of-type]:grid [&>span:first-of-type]:gap-[5px] [&>span:first-of-type]:flex-1 [&_strong]:text-[13px] [&_strong]:text-[var(--fg)] [&_small]:leading-[1.6]"
           :class="{ enabled: settle }"
         >
           <AppInput
@@ -114,12 +114,12 @@ async function submit() {
           >
           <span
             v-if="settle"
-            class="settle-badge py-[3px] px-[7px] rounded-[4px] text-[#c9d5ff] bg-[#40517a] text-[10px]"
+            class="settle-badge py-[3px] px-[7px] rounded-[4px] text-[var(--fg)] bg-[var(--selection)] text-[10px]"
             >Enabled</span
           >
         </label>
         <p
-          class="close-chat-hint m-0 text-[11px] leading-[1.7] text-[#9eadc8] [overflow-wrap:anywhere] [&_strong]:text-[#e2e7f3]"
+          class="close-chat-hint m-0 text-[11px] leading-[1.7] text-[var(--fg-secondary)] [overflow-wrap:anywhere] [&_strong]:text-[var(--fg)]"
         >
           {{
             willSettle
@@ -129,14 +129,14 @@ async function submit() {
         </p>
         <p
           v-if="willSettle && !connected"
-          class="inline-error text-[#9eadc8] bg-[#472b343f] py-[10px] px-[12px] text-[12px] leading-[1.7] whitespace-pre-wrap [overflow-wrap:anywhere] m-0 [&_strong]:text-[#e2e7f3]"
+          class="inline-error text-[var(--fg-secondary)] bg-[var(--danger-bg)] py-[10px] px-[12px] text-[12px] leading-[1.7] whitespace-pre-wrap [overflow-wrap:anywhere] m-0 [&_strong]:text-[var(--fg)]"
         >
           Reconnect T3 Code to settle, or uncheck “Settle conversation” to close
           only the tab.
         </p>
         <div
           v-if="error"
-          class="inline-error text-[#e4a6b0] bg-[#472b343f] py-[10px] px-[12px] text-[11px] leading-[1.7] whitespace-pre-wrap [overflow-wrap:anywhere]"
+          class="inline-error text-[var(--danger)] bg-[var(--danger-bg)] py-[10px] px-[12px] text-[11px] leading-[1.7] whitespace-pre-wrap [overflow-wrap:anywhere]"
           role="alert"
         >
           {{ error }}
@@ -153,7 +153,7 @@ async function submit() {
           <AppButton
             variant="primary"
             type="submit"
-            class="primary [border-color:#adbbff]"
+            class="primary [border-color:var(--line)]"
             :disabled="submitting || (willSettle && !connected)"
           >
             <LoaderCircle

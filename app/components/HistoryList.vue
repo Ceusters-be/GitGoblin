@@ -109,7 +109,7 @@ function navigate(event: KeyboardEvent) {
     @keydown="navigate"
   >
     <div
-      class="history-columns grid grid-cols-[var(--graph-width)_minmax(120px,_1fr)_140px_65px_130px] items-center w-full gap-[8px] py-0 px-[8px] text-left rounded-none text-[8px] tracking-[1px] text-[#66748e] border-t-[1px] border-solid border-t-[var(--line)] border-b-[1px] border-b-[var(--line)] sticky top-0 bg-[#191c23] z-[1] min-w-[620px] h-[24px] box-border"
+      class="history-columns grid grid-cols-[var(--graph-width)_minmax(120px,_1fr)_140px_65px_130px] items-center w-full gap-[8px] py-0 px-[8px] text-left rounded-none text-[8px] tracking-[1px] text-[var(--muted)] border-t-[1px] border-solid border-t-[var(--line)] border-b-[1px] border-b-[var(--line)] sticky top-0 bg-[var(--panel)] z-[1] min-w-[620px] h-[24px] box-border"
     >
       <span>GRAPH</span><span>COMMIT</span><span>AUTHOR</span><span>HASH</span
       ><span>DATE</span>
@@ -118,7 +118,7 @@ function navigate(event: KeyboardEvent) {
     <AppButton
       v-for="(commit, i) in visible"
       :key="commit.id"
-      class="commit-row [.segmented_button&.active]:bg-[#292d38] [.segmented_button&.active]:text-[#d1d8ed] [.segmented_button&.active]:shadow-[0_1px_3px_#0004] grid grid-cols-[var(--graph-width)_minmax(120px,_1fr)_140px_65px_130px] items-center w-full gap-[8px] py-0 px-[8px] text-left rounded-none h-[22px] text-[11px] border-b-[1px] border-solid border-b-[#202632] [&.active]:bg-[#252e43] [&.active]:text-[#ccd9ff] [&_code]:text-[10px] [&_code]:text-[#7c8db2] min-w-[620px] min-h-[22px] border-0"
+      class="commit-row [.segmented_button&.active]:bg-[var(--hover)] [.segmented_button&.active]:text-[var(--fg)] [.segmented_button&.active]:shadow-[0_1px_3px_#0004] grid grid-cols-[var(--graph-width)_minmax(120px,_1fr)_140px_65px_130px] items-center w-full gap-[8px] py-0 px-[8px] text-left rounded-none h-[22px] text-[11px] border-b-[1px] border-solid border-b-[var(--line)] [&.active]:bg-[var(--raised)] [&.active]:text-[var(--fg)] [&_code]:text-[10px] [&_code]:text-[var(--muted)] min-w-[620px] min-h-[22px] border-0"
       :class="[{ active: selected === commit.id }]"
       :aria-current="selected === commit.id ? 'true' : undefined"
       aria-haspopup="menu"
@@ -136,15 +136,15 @@ function navigate(event: KeyboardEvent) {
           :key="reference"
           :title="reference"
           class="ref-label inline-block py-0 px-[6px] border-[1px] border-solid text-[9px] rounded-full shrink-0 max-w-[42%] overflow-hidden text-ellipsis m-0 leading-[15px]"
-          :class="reference.startsWith('tag: ') ? 'tag-label border-[#7b633b] bg-[#493b24] text-[#e4c385]' : 'border-[#3d4a64] bg-[#263247] text-[#b6c8eb]'"
+          :class="reference.startsWith('tag: ') ? 'tag-label border-[var(--line)] bg-[var(--warning-bg)] text-[var(--warning)]' : 'border-[var(--line)] bg-[var(--raised)] text-[var(--accent)]'"
           >{{ reference }}</span
         >{{ commit.subject }}</span
       >
       <span
-        class="commit-author text-[10px] text-[#7c89a5] overflow-hidden text-ellipsis flex items-center gap-[5px] whitespace-nowrap"
+        class="commit-author text-[10px] text-[var(--muted)] overflow-hidden text-ellipsis flex items-center gap-[5px] whitespace-nowrap"
         :title="commit.author"
         ><span
-          class="commit-avatar shrink-0 grid place-items-center h-[14px] w-[14px] rounded-[3px] bg-[#475675] text-[#e2e7f2] text-[7px]"
+          class="commit-avatar shrink-0 grid place-items-center h-[14px] w-[14px] rounded-[3px] bg-[var(--selection)] text-[var(--fg)] text-[7px]"
           >{{
             commit.author
               .split(" ")
@@ -159,7 +159,7 @@ function navigate(event: KeyboardEvent) {
         :title="commit.id"
         >{{ commit.id.slice(0, 7) }}</code
       ><time
-        class="commit-date text-[#7c89a5] text-[10px] whitespace-nowrap"
+        class="commit-date text-[var(--muted)] text-[10px] whitespace-nowrap"
         :title="commit.date"
         >{{ commit.date.slice(0, 16).replace("T", " ") }}</time
       >
@@ -169,12 +169,12 @@ function navigate(event: KeyboardEvent) {
       aria-hidden="true"
     />
     <div
-      class="history-footer flex justify-between items-center py-[6px] px-[12px] min-h-[30px] text-[10px] text-[#8a96ad]"
+      class="history-footer flex justify-between items-center py-[6px] px-[12px] min-h-[30px] text-[10px] text-[var(--muted)]"
     >
       <span>{{ commits.length }} commits loaded</span
       ><AppButton
         v-if="hasMore"
-        class="small text-[11px] py-[4px] px-[7px] [border-color:#30343f] rounded-[4px]"
+        class="small text-[11px] py-[4px] px-[7px] [border-color:var(--line)] rounded-[4px]"
         :disabled="loading"
         @click="emit('loadMore')"
       >

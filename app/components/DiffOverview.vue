@@ -141,7 +141,7 @@ function stopDrag(event: PointerEvent) {
 
 <template>
   <nav
-    class="diff-overview relative flex-[0_0_22px] bg-[#11151d] border-l-[1px] border-solid border-l-[var(--line)] cursor-pointer overflow-hidden touch-none select-none"
+    class="diff-overview relative flex-[0_0_22px] bg-[var(--bg)] border-l-[1px] border-solid border-l-[var(--line)] cursor-pointer overflow-hidden touch-none select-none"
     aria-label="Change overview"
     @pointerdown="startDrag"
     @pointermove="drag"
@@ -150,7 +150,7 @@ function stopDrag(event: PointerEvent) {
     @lostpointercapture="stopDrag"
   >
     <div
-      class="overview-viewport absolute left-0 w-full bg-[#94a7cc18] border-y-[1px] border-solid border-y-[#94a7cc45] pointer-events-none"
+      class="overview-viewport absolute left-0 w-full bg-[var(--selection)] border-y-[1px] border-solid border-y-[#94a7cc45] pointer-events-none"
       :style="{
         top: `${viewport.top}%`,
         height: `${Math.min(100, viewport.height)}%`,
@@ -159,7 +159,7 @@ function stopDrag(event: PointerEvent) {
     <AppButton
       v-for="(marker, i) in markers"
       :key="i"
-      class="overview-marker absolute w-[8px] min-h-[4px] p-0 border-0 rounded-[1px] [&.add]:right-[2px] [&.add]:bg-[#72c795] [&.delete]:left-[2px] [&.delete]:bg-[#e48791] hover:[outline:2px_solid_#d5dff4] hover:z-[1] focus-visible:[outline:2px_solid_#d5dff4] focus-visible:z-[1]"
+      class="overview-marker absolute w-[8px] min-h-[4px] p-0 border-0 rounded-[1px] [&.add]:right-[2px] [&.add]:bg-[var(--success-bg)] [&.delete]:left-[2px] [&.delete]:bg-[var(--danger-bg)] hover:[outline:2px_solid_#d5dff4] hover:z-[1] focus-visible:[outline:2px_solid_#d5dff4] focus-visible:z-[1]"
       :class="[marker.kind]"
       :style="{ top: `${marker.top}%`, height: `${marker.height}%` }"
       :aria-label="`Jump to ${marker.kind === 'add' ? 'added' : 'deleted'} lines near line ${marker.line}`"

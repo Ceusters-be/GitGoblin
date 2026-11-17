@@ -190,7 +190,7 @@ defineExpose({ openAll, closePicker: () => (pickerOpen.value = false) });
           <div
             v-for="thread in tabs"
             :key="thread.id"
-            class="chat-tab flex flex-[0_0_auto] h-[44px] max-w-[360px] border-[1px] border-solid border-[var(--line)] rounded-[6px] bg-[#1b202b] [&.selected]:bg-[#2a3348] [&.selected]:[border-color:#657ba8] [&>button[role='tab']]:flex [&>button[role='tab']]:items-center [&>button[role='tab']]:gap-[9px] [&>button[role='tab']]:min-w-0 [&>button[role='tab']]:pt-[5px] [&>button[role='tab']]:pr-[5px] [&>button[role='tab']]:pb-[5px] [&>button[role='tab']]:pl-[11px] [&>button[role='tab']]:border-0 [&>button[role='tab']]:bg-[transparent] [&>button[role='tab']]:text-left"
+            class="chat-tab flex flex-[0_0_auto] max-w-[360px] border-[1px] border-solid rounded-[6px] [&>button[role='tab']]:flex [&>button[role='tab']]:items-center [&>button[role='tab']]:gap-[9px] [&>button[role='tab']]:min-w-0 [&>button[role='tab']]:pt-[5px] [&>button[role='tab']]:pr-[5px] [&>button[role='tab']]:pb-[5px] [&>button[role='tab']]:pl-[11px] [&>button[role='tab']]:border-0 [&>button[role='tab']]:bg-[transparent] [&>button[role='tab']]:text-left h-[36px] bg-[var(--bg)] border-transparent [&.selected]:bg-[#29384d] [&.selected]:[border-color:#47638a] [[data-theme=daylight]_&.selected]:bg-[var(--selection)] [[data-theme=daylight]_&.selected]:border-[var(--accent)]"
             :class="{ selected: selected === thread.id }"
             draggable="true"
             data-tauri-drag-region="false"
@@ -225,7 +225,7 @@ defineExpose({ openAll, closePicker: () => (pickerOpen.value = false) });
                   "
                 />
                 <span
-                  class="tab-label grid gap-[3px] min-w-0 [&_small]:overflow-hidden [&_small]:whitespace-nowrap [&_small]:text-ellipsis [&_strong]:overflow-hidden [&_strong]:whitespace-nowrap [&_strong]:text-ellipsis [&_small]:text-[10px] [&_small]:leading-[12px] [&_small]:text-[#a5b5d5] [&_strong]:text-[12px] [&_strong]:leading-[15px] [&_strong]:font-medium [&_strong]:text-[#e2e7f3]"
+                  class="tab-label grid min-w-0 [&_small]:overflow-hidden [&_small]:whitespace-nowrap [&_small]:text-ellipsis [&_strong]:overflow-hidden [&_strong]:whitespace-nowrap [&_strong]:text-ellipsis [&_small]:text-[10px] [&_small]:leading-[12px] [&_small]:text-[var(--fg-secondary)] [&_strong]:text-[12px] [&_strong]:leading-[15px] [&_strong]:font-medium [&_strong]:text-[var(--fg)] gap-[1px]"
                   ><strong>{{ thread.title }}</strong
                   ><small class="[:where(&)]:text-[11px]"
                     >{{ name(thread)
@@ -249,7 +249,7 @@ defineExpose({ openAll, closePicker: () => (pickerOpen.value = false) });
           </div>
           <span
             v-if="!tabs.length"
-            class="empty-tabs py-0 px-[5px] text-[#98a5bc] text-[12px]"
+            class="empty-tabs py-0 px-[5px] text-[var(--fg-secondary)] text-[12px]"
             >Open a chat to get started</span
           >
         </div></TabsList
@@ -277,7 +277,7 @@ defineExpose({ openAll, closePicker: () => (pickerOpen.value = false) });
           :title="openOnly ? 'Open chat tabs' : 'All chats'"
           @close="pickerOpen = false"
           ><section
-            class="chat-picker [width:min(660px,_calc(100vw_-_32px))] [max-height:min(720px,_calc(100vh_-_64px))] p-[20px] border-[1px] border-solid border-[#3a455c] rounded-[12px] text-[#e2e7f3] bg-[#171c26] shadow-[0_24px_80px_#0008] flex flex-col gap-[14px]"
+            class="chat-picker [width:min(660px,_calc(100vw_-_32px))] [max-height:min(720px,_calc(100vh_-_64px))] p-[20px] border-[1px] border-solid border-[var(--line)] rounded-[12px] text-[var(--fg)] bg-[var(--panel)] shadow-[0_24px_80px_#0008] flex flex-col gap-[14px]"
             aria-labelledby="chat-picker-title"
           >
             <AppDialogHeader class="modal-heading">
@@ -307,7 +307,7 @@ defineExpose({ openAll, closePicker: () => (pickerOpen.value = false) });
             /></label>
             <label
               v-if="!openOnly"
-              class="archive-filter flex items-center gap-[8px] text-[12px] text-[#aab6ce]"
+              class="archive-filter flex items-center gap-[8px] text-[12px] text-[var(--fg-secondary)]"
               ><AppInput v-model="archived" type="checkbox" />Include settled and archived
               chats</label
             >
@@ -315,7 +315,7 @@ defineExpose({ openAll, closePicker: () => (pickerOpen.value = false) });
               <section
                 v-for="group in groups"
                 :key="group.key"
-                class="chat-group [&_+_.chat-group]:mt-[18px] [&_h3]:mt-0 [&_h3]:mx-0 [&_h3]:mb-[7px] [&_h3]:text-[12px] [&_h3]:text-[#b7c7e8] [&_h3_small]:block [&_h3_small]:text-[10px] [&_h3_small]:font-normal [&_h3_small]:text-[#8e9bb3] [&_h3_small]:mt-[4px] [&_h3_small]:[overflow-wrap:anywhere]"
+                class="chat-group [&_+_.chat-group]:mt-[18px] [&_h3]:mt-0 [&_h3]:mx-0 [&_h3]:mb-[7px] [&_h3]:text-[12px] [&_h3]:text-[var(--accent)] [&_h3_small]:block [&_h3_small]:text-[10px] [&_h3_small]:font-normal [&_h3_small]:text-[var(--muted)] [&_h3_small]:mt-[4px] [&_h3_small]:[overflow-wrap:anywhere]"
               >
                 <h3
                   class="[:where(&)]:m-0 [:where(&)]:text-[16px] [:where(&)]:[font-weight:550]"
@@ -328,7 +328,7 @@ defineExpose({ openAll, closePicker: () => (pickerOpen.value = false) });
                 <AppButton
                   v-for="thread in group.threads"
                   :key="thread.id"
-                  class="chat-result w-full flex gap-[10px] items-center text-left p-[10px] bg-[transparent] border-[1px] border-solid border-[transparent] hover:bg-[#27334b] hover:[border-color:#415271] [&.current]:bg-[#27334b] [&.current]:[border-color:#415271] [&>span:not(.chat-status)]:flex-1 [&>span:not(.chat-status)]:grid [&>span:not(.chat-status)]:gap-[4px] [&>span:not(.chat-status)]:min-w-0 [&_strong]:text-[12px] [&_strong]:font-medium [&_strong]:[overflow-wrap:anywhere] [&_small]:text-[10px] [&_small]:text-[#97a8c7]"
+                  class="chat-result w-full flex gap-[10px] items-center text-left p-[10px] bg-[transparent] border-[1px] border-solid border-[transparent] hover:bg-[var(--selection)] hover:[border-color:var(--line)] [&.current]:bg-[var(--selection)] [&.current]:[border-color:var(--line)] [&>span:not(.chat-status)]:flex-1 [&>span:not(.chat-status)]:grid [&>span:not(.chat-status)]:gap-[4px] [&>span:not(.chat-status)]:min-w-0 [&_strong]:text-[12px] [&_strong]:font-medium [&_strong]:[overflow-wrap:anywhere] [&_small]:text-[10px] [&_small]:text-[var(--fg-secondary)]"
                   :class="[{ current: selected === thread.id }]"
                   :disabled="disabled"
                   @click="choose(thread.id)"

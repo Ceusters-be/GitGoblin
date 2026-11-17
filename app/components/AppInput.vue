@@ -15,7 +15,7 @@ const AppInput: FunctionalComponent<Props> = (props, { attrs }) => {
   const element = h("input", {
     ...attrs,
     class: [
-      "[:where(&)]:[font:inherit] [:where(&)]:text-[inherit] [:where(&)]:bg-[#101115] [:where(&)]:border-[1px] [:where(&)]:border-solid [:where(&)]:border-[#343640] [:where(&)]:rounded-[6px] [:where(&)]:py-[9px] [:where(&)]:px-[10px] [:where(&)]:outline-none [:where(&)]:min-w-0 [:where(&:focus)]:[border-color:#8092d2] [:where(&:focus)]:shadow-[0_0_0_2px_#8297ec12] [:where(&::placeholder)]:text-[#6a6e7b] [:where(&[type='checkbox'])]:[accent-color:#94a5ec]",
+      "[:where(&)]:[font:inherit] [:where(&)]:text-[inherit] [:where(&)]:bg-[var(--bg)] [:where(&)]:border-[1px] [:where(&)]:border-solid [:where(&)]:border-[var(--line)] [:where(&)]:rounded-[6px] [:where(&)]:py-[9px] [:where(&)]:px-[10px] [:where(&)]:outline-none [:where(&)]:min-w-0 [:where(&:focus)]:[border-color:var(--accent)] [:where(&:focus)]:shadow-[0_0_0_2px_#8297ec12] [:where(&::placeholder)]:text-[var(--muted)] [:where(&[type='checkbox'])]:[accent-color:var(--accent)]",
       attrs.class,
     ],
   });

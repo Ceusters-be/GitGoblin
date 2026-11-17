@@ -35,12 +35,12 @@ function branchTitle(branch: GitRef) {
 </script>
 
 <template>
-  <ul class="branch-tree list-none p-0 m-0 min-w-0 [details>&]:pl-[15px]">
+  <ul class="branch-tree list-none p-0 m-0 min-w-0 [details>&]:pl-[22px]">
     <li v-for="node in nodes" :key="node.path">
       <details v-if="node.children.length" open>
         <AppTreeRow
           as="summary"
-          class="tree-row min-h-[28px] [&.current]:text-[#d6f4e1] [&.current]:bg-[#20372e] [&.current]:shadow-[inset_2px_0_#8bcca6] cursor-pointer list-none rounded-[6px] [&::-webkit-details-marker]:hidden hover:bg-[#252831] hover:text-[#f0f1f7] focus-visible:[outline:2px_solid_var(--blue)] focus-visible:outline-offset-[-2px] pt-[5px] pb-[5px] [&.current]:font-semibold [&.current>svg]:text-[#a0dfb9] [summary&]:text-[#aab8ce] [button&]:pl-[32px] [&>.branch-tracking]:flex [&>.branch-tracking]:flex-[0_0_auto] [&>.branch-tracking]:gap-[6px] [&>.branch-tracking]:ml-auto [&>.branch-tracking]:overflow-visible [&>.branch-tracking]:text-[10px] [&>.branch-tracking]:tabular-nums"
+          class="tree-row min-h-[28px] [&.current]:text-[var(--success)] [&.current]:bg-[var(--success-bg)] [&.current]:shadow-[inset_2px_0_#8bcca6] cursor-pointer list-none rounded-[6px] [&::-webkit-details-marker]:hidden hover:bg-[var(--hover)] hover:text-[var(--fg)] focus-visible:[outline:2px_solid_var(--blue)] focus-visible:outline-offset-[-2px] pt-[5px] pb-[5px] [&.current]:font-semibold [&.current>svg]:text-[var(--success)] [summary&]:text-[var(--fg-secondary)] [button&]:pl-[32px] [&>.branch-tracking]:flex [&>.branch-tracking]:flex-[0_0_auto] [&>.branch-tracking]:gap-[6px] [&>.branch-tracking]:ml-auto [&>.branch-tracking]:overflow-visible [&>.branch-tracking]:text-[10px] [&>.branch-tracking]:tabular-nums"
           :title="node.path"
         >
           <ChevronRight
@@ -59,7 +59,7 @@ function branchTitle(branch: GitRef) {
       </details>
       <div v-else-if="node.branch" class="flex items-center min-w-0">
         <AppTreeRow
-          class="min-w-0 flex-1 tree-row min-h-[28px] [&.current]:text-[#d6f4e1] [&.current]:bg-[#20372e] [&.current]:shadow-[inset_2px_0_#8bcca6] pt-[5px] pb-[5px] [&.current]:font-semibold [&.current>svg]:text-[#a0dfb9] [summary&]:text-[#aab8ce] [button&]:pl-[32px] [&>.branch-tracking]:flex [&>.branch-tracking]:flex-[0_0_auto] [&>.branch-tracking]:gap-[6px] [&>.branch-tracking]:ml-auto [&>.branch-tracking]:overflow-visible [&>.branch-tracking]:text-[10px] [&>.branch-tracking]:tabular-nums"
+          class="min-w-0 flex-1 tree-row min-h-[28px] [&.current]:text-[var(--success)] [&.current]:bg-[var(--success-bg)] [&.current]:shadow-[inset_2px_0_#8bcca6] pt-[5px] pb-[5px] [&.current]:font-semibold [&.current>svg]:text-[var(--success)] [summary&]:text-[var(--fg-secondary)] [button&]:pl-[32px] [&>.branch-tracking]:flex [&>.branch-tracking]:flex-[0_0_auto] [&>.branch-tracking]:gap-[6px] [&>.branch-tracking]:ml-auto [&>.branch-tracking]:overflow-visible [&>.branch-tracking]:text-[10px] [&>.branch-tracking]:tabular-nums"
           :class="[[{ current: node.branch.current }]]"
           :title="branchTitle(node.branch)"
           :aria-current="node.branch.current ? 'true' : undefined"
@@ -79,7 +79,7 @@ function branchTitle(branch: GitRef) {
           >
             <span
               v-if="!node.branch.upstream || node.branch.upstreamGone"
-              class="upstream-warning text-[#d5af73] text-[9px]"
+              class="upstream-warning text-[var(--warning)] text-[9px]"
             >
               <Unplug :size="11" />{{
                 node.branch.upstreamGone ? "Upstream gone" : "No upstream"
@@ -88,13 +88,13 @@ function branchTitle(branch: GitRef) {
             <template v-else>
               <span
                 v-if="node.branch.behind"
-                class="incoming text-[#8fc5ec]"
+                class="incoming text-[var(--accent)]"
                 :title="`${node.branch.behind} commits to pull from ${node.branch.upstream}`"
                 ><ArrowDown :size="12" />{{ node.branch.behind }}</span
               >
               <span
                 v-if="node.branch.ahead"
-                class="outgoing text-[#a6c8a0]"
+                class="outgoing text-[var(--success)]"
                 :title="`${node.branch.ahead} commits ahead of ${node.branch.upstream}`"
                 ><ArrowUp :size="12" />{{ node.branch.ahead }}</span
               >
@@ -104,7 +104,7 @@ function branchTitle(branch: GitRef) {
         <div class="flex shrink-0 items-center gap-[2px] pr-[4px]">
           <AppButton
             size="icon"
-            class="!w-[22px] !h-[22px] !p-[3px] aria-pressed:bg-[#334568] aria-pressed:text-[#c4d3ff] aria-pressed:border-[#7e9ce0] aria-pressed:hover:bg-[#405780]"
+            class="!w-[22px] !h-[22px] !p-[3px] aria-pressed:bg-[var(--selection)] aria-pressed:text-[var(--fg)] aria-pressed:border-[var(--line)] aria-pressed:hover:bg-[var(--selection)]"
             :disabled="filtersDisabled"
             :title="`Only view ${node.name}`"
             :aria-label="`Only view ${node.name}`"
@@ -114,7 +114,7 @@ function branchTitle(branch: GitRef) {
           /></AppButton>
           <AppButton
             size="icon"
-            class="!w-[22px] !h-[22px] !p-[3px] aria-pressed:bg-[#334568] aria-pressed:text-[#c4d3ff] aria-pressed:border-[#7e9ce0] aria-pressed:hover:bg-[#405780]"
+            class="!w-[22px] !h-[22px] !p-[3px] aria-pressed:bg-[var(--selection)] aria-pressed:text-[var(--fg)] aria-pressed:border-[var(--line)] aria-pressed:hover:bg-[var(--selection)]"
             :disabled="filtersDisabled"
             :title="`Exclude ${node.name} from history`"
             :aria-label="`Exclude ${node.name} from history`"

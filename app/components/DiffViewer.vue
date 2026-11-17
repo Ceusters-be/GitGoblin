@@ -9,7 +9,7 @@ import {
   onUnmounted,
   nextTick,
 } from "vue";
-import { Check, MessageSquarePlus, LoaderCircle } from "lucide-vue-next";
+import { Check, FileCode2, MessageSquarePlus, LoaderCircle } from "lucide-vue-next";
 import { diffFileStatus } from "~/lib/diff-files";
 import { diffGeometry, diffViewport } from "~/lib/diff-geometry";
 import { createDiffSession, type DiffViewRequest } from "~/lib/diff-session";
@@ -338,10 +338,10 @@ function context() {
     }"
   >
     <div
-      class="diff-actions min-h-[35px] flex items-center gap-[8px] py-[6px] px-[12px] text-[#616b7e] text-[9px] [&>span]:flex-1 [&_.small]:text-[9px] [&_.small]:[border-color:transparent] [&_.small]:text-[#8e9ab2] [@media(max-width:1250px)]:[&>span]:hidden [@media(max-width:1100px)]:flex-wrap"
+      class="diff-actions flex items-center py-[6px] px-[12px] [&>span]:flex-1 [&_.small]:[border-color:transparent] [@media(max-width:1250px)]:[&>span]:hidden [@media(max-width:1100px)]:flex-wrap flex-wrap gap-[6px] min-h-[42px] border-b border-solid border-[var(--line)] text-[var(--muted)] text-[11px] [&_.small]:min-h-[28px] [&_.small]:text-[11px] [&_.small]:text-[var(--fg-secondary)] [&_button[aria-pressed='true']]:bg-[var(--selection)]! [&_button[aria-pressed='true']]:text-[var(--accent)]!"
     >
       <div
-        class="diff-layout flex shrink-0 border-[1px] border-solid border-[var(--line)] rounded-[5px] p-[2px] [&_button]:py-[3px] [&_button]:px-[7px] [&_button]:text-[10px] [&_button]:rounded-[3px] [&_button[aria-pressed='true']]:bg-[#2a3244] [&_button[aria-pressed='true']]:text-[#c1cfff]"
+        class="diff-layout flex shrink-0 border-solid border-[var(--line)] p-[2px] [&_button]:py-[3px] [&_button]:px-[7px] [&_button]:rounded-[3px] [&_button[aria-pressed='true']]:bg-[var(--raised)] [&_button[aria-pressed='true']]:text-[var(--fg)] bg-[var(--chrome)] border-0 rounded-[6px] [&_button]:min-h-[28px] [&_button]:text-[11px] [&_button]:text-[var(--fg-secondary)]"
         role="group"
         aria-label="Diff layout"
       >
@@ -356,7 +356,7 @@ function context() {
         </AppButton>
       </div>
       <AppButton
-        class="small wrap-toggle text-[11px] py-[4px] px-[7px] [border-color:#30343f] rounded-[4px] [&[aria-pressed='true']]:bg-[#2a3244] [&[aria-pressed='true']]:text-[#c1cfff]"
+        class="small wrap-toggle text-[11px] py-[4px] px-[7px] [border-color:var(--line)] rounded-[4px] [&[aria-pressed='true']]:bg-[var(--raised)] [&[aria-pressed='true']]:text-[var(--fg)]"
         :aria-pressed="wrapLines && !large"
         :disabled="large"
         :title="large ? 'Wrapping is unavailable for large diffs' : undefined"
@@ -366,7 +366,7 @@ function context() {
       </AppButton>
       <AppButton
         v-if="wholeFile !== undefined"
-        class="small text-[11px] py-[4px] px-[7px] [border-color:#30343f] rounded-[4px]"
+        class="small text-[11px] py-[4px] px-[7px] [border-color:var(--line)] rounded-[4px]"
         :aria-pressed="wholeFile"
         @click="emit('update:wholeFile', !wholeFile)"
       >
@@ -378,7 +378,7 @@ function context() {
         aria-label="Diff font size"
       >
         <AppButton
-          class="small text-[11px] py-[4px] px-[7px] [border-color:#30343f] rounded-[4px]"
+          class="small text-[11px] py-[4px] px-[7px] [border-color:var(--line)] rounded-[4px]"
           aria-label="Decrease diff font size"
           title="Decrease diff font size"
           :disabled="fontSize <= 9"
@@ -390,7 +390,7 @@ function context() {
           >{{ fontSize }}px</output
         >
         <AppButton
-          class="small text-[11px] py-[4px] px-[7px] [border-color:#30343f] rounded-[4px]"
+          class="small text-[11px] py-[4px] px-[7px] [border-color:var(--line)] rounded-[4px]"
           aria-label="Increase diff font size"
           title="Increase diff font size"
           :disabled="fontSize >= 20"
@@ -413,7 +413,7 @@ function context() {
       }}</span
       ><AppButton
         v-if="editable && selected.size"
-        class="small text-[11px] py-[4px] px-[7px] [border-color:#30343f] rounded-[4px]"
+        class="small text-[11px] py-[4px] px-[7px] [border-color:var(--line)] rounded-[4px]"
         :disabled="disabled || loading || patching"
         @click="stage()"
       >
@@ -422,7 +422,7 @@ function context() {
         }}
         selection</AppButton
       ><AppButton
-        class="small text-[11px] py-[4px] px-[7px] [border-color:#30343f] rounded-[4px]"
+        class="small text-[11px] py-[4px] px-[7px] [border-color:var(--line)] rounded-[4px]"
         @click="context"
       >
         <MessageSquarePlus :size="14" />Add to chat
@@ -430,7 +430,7 @@ function context() {
     </div>
     <div
       v-if="error"
-      class="inline-error text-[#e4a6b0] bg-[#472b343f] py-[10px] px-[12px] text-[11px] leading-[1.7] whitespace-pre-wrap [overflow-wrap:anywhere]"
+      class="inline-error text-[var(--danger)] bg-[var(--danger-bg)] py-[10px] px-[12px] text-[11px] leading-[1.7] whitespace-pre-wrap [overflow-wrap:anywhere]"
     >
       {{ error }}
     </div>
@@ -439,7 +439,7 @@ function context() {
       <div class="diff-main flex flex-col flex-1 min-w-0 min-h-0 relative">
         <div
           v-if="preparing || (loading && !text)"
-          class="diff-pending absolute inset-0 z-[1] flex flex-col items-center justify-center gap-[10px] bg-[#171c26] text-[#96a3ba] pointer-events-none"
+          class="diff-pending absolute inset-0 z-[1] flex flex-col items-center justify-center gap-[10px] bg-[var(--panel)] text-[var(--muted)] pointer-events-none"
           role="status"
         >
           <LoaderCircle :size="22" class="spin animate-spin" /><span
@@ -448,12 +448,17 @@ function context() {
         </div>
         <div
           ref="scroller"
-          class="diff-scroll overflow-auto flex-1 min-h-0 pb-[30px] [overflow-anchor:none] [.side-by-side_&]:overflow-x-hidden"
+          class="diff-scroll overflow-auto flex-1 min-h-0 pb-[30px] [overflow-anchor:none] [.side-by-side_&]:overflow-x-hidden has-[.diff-empty]:flex has-[.diff-empty]:flex-col"
           @contextmenu="openSelectionMenu"
           @scroll="onScroll"
         >
+          <div v-if="!text && !loading && !preparing" class="diff-empty m-auto py-[40px] px-[24px] text-center text-[var(--muted)] [&>svg]:box-content! [&>svg]:p-[16px] [&>svg]:mx-auto [&>svg]:mt-0 [&>svg]:mb-[16px] [&>svg]:border [&>svg]:border-solid [&>svg]:border-[var(--line)] [&>svg]:rounded-[14px] [&>svg]:bg-[var(--panel)] [&>svg]:text-[var(--accent)] [&_h3]:mt-0 [&_h3]:mx-0 [&_h3]:mb-[8px] [&_h3]:text-[16px] [&_h3]:font-medium [&_h3]:text-[var(--fg)] [&_h3]:tracking-[-.3px] [&_p]:m-0 [&_p]:text-[12px] [&_p]:leading-[1.6]" role="status">
+            <FileCode2 :size="26" aria-hidden="true" />
+            <h3>No text changes to display</h3>
+            <p>Select another file to review its changes.</p>
+          </div>
           <div
-            v-if="!preparing"
+            v-else-if="!preparing"
             class="diff-content"
             :style="
               large && layout !== 'split'
@@ -464,13 +469,13 @@ function context() {
             <template v-for="(file, fileIndex) in files" :key="fileIndex">
               <div
                 v-if="files.length > 1"
-                class="diff-file-label [.large-diff_&]:h-[32px] [.large-diff_&]:whitespace-nowrap py-[9px] px-[12px] text-[#bac7e0] text-[11px] bg-[#1b2030] [overflow-wrap:anywhere]"
+                class="diff-file-label [.large-diff_&]:h-[32px] [.large-diff_&]:whitespace-nowrap py-[9px] px-[12px] text-[var(--fg-secondary)] text-[11px] bg-[var(--panel)] [overflow-wrap:anywhere]"
               >
                 {{ diffFileStatus(file.header)?.path || file.header.split("\n")[0] }}
               </div>
               <div
                 v-if="layout === 'split' && file.hunks.length"
-                class="split-labels [.large-diff_&]:h-[29px] grid grid-cols-[minmax(0,_1fr)_minmax(0,_1fr)] bg-[#171c26] border-b-[1px] border-solid border-b-[var(--line)] text-[#8998b4] text-[10px] [&_span]:py-[7px] [&_span]:px-[15px] [&_span:first-child]:border-r-[1px] [&_span:first-child]:border-solid [&_span:first-child]:border-r-[#353d4d] [.wrap-lines_&]:min-w-0"
+                class="split-labels [.large-diff_&]:h-[29px] grid grid-cols-[minmax(0,_1fr)_minmax(0,_1fr)] bg-[var(--panel)] border-b-[1px] border-solid border-b-[var(--line)] text-[var(--muted)] text-[10px] [&_span]:py-[7px] [&_span]:px-[15px] [&_span:first-child]:border-r-[1px] [&_span:first-child]:border-solid [&_span:first-child]:border-r-[var(--line)] [.wrap-lines_&]:min-w-0"
               >
                 <span>Original</span><span>Modified</span>
               </div>
@@ -481,14 +486,14 @@ function context() {
                 :data-file="props.path || diffFileStatus(file.header)?.path || file.header.split('\n')[0]"
               >
                 <div
-                  class="hunk-header min-h-[42px] flex items-center justify-between gap-[15px] py-[7px] px-[12px] bg-[#202736] text-[#8093bc] text-[10px] border-t-[1px] border-solid border-t-[#2a3346] border-b-[1px] border-b-[#2a3346] mt-[8px] mx-0 mb-0 [&_button]:text-[9px] [&_button]:bg-[#293348] [&_button]:text-[#a1b4dd] [&_button]:[border-color:#34425b] [.large-diff_&]:h-[42px]"
+                  class="hunk-header min-h-[42px] flex items-center justify-between gap-[15px] py-[7px] px-[12px] bg-[var(--panel)] text-[var(--muted)] text-[10px] border-t-[1px] border-solid border-t-[var(--line)] border-b-[1px] border-b-[var(--line)] mt-[8px] mx-0 mb-0 [&_button]:text-[9px] [&_button]:bg-[var(--selection)] [&_button]:text-[var(--fg-secondary)] [&_button]:[border-color:var(--line)] [.large-diff_&]:h-[42px]"
                 >
                   <code
                     class="[:where(&)]:font-['Cascadia_Code',_'JetBrains_Mono',_Consolas,_monospace]"
                     >{{ hunk.header }}</code
                   ><AppButton
                     v-if="editable"
-                    class="small text-[11px] py-[4px] px-[7px] [border-color:#30343f] rounded-[4px]"
+                    class="small text-[11px] py-[4px] px-[7px] [border-color:var(--line)] rounded-[4px]"
                     :disabled="disabled || loading || patching"
                     @click="stage(undefined, hunk.start)"
                   >
@@ -509,7 +514,7 @@ function context() {
                     <div
                       v-for="side in ['left', 'right'] as const"
                       :key="side"
-                      class="diff-line split-cell block items-stretch min-h-[var(--diff-row-height)] text-[length:var(--diff-font-size)] leading-[var(--diff-row-height)] whitespace-pre min-w-0 w-full [&_code]:pr-[12px] [&_code]:text-[#b5bdce] [&_code]:[tab-size:2] [&.add]:bg-[#23834b40] [&.add_code]:text-[#c0f0ce] [&.add_.line-sign]:text-[#87e5a6] [&.add_.line-number]:bg-[#23834b50] [&.add_.line-number]:text-[#9cdbaf] [&.delete]:bg-[#c7435140] [&.delete_code]:text-[#ffd0d5] [&.delete_.line-sign]:text-[#ff98a3] [&.delete_.line-number]:bg-[#c7435150] [&.delete_.line-number]:text-[#f1a6af] [&.selected]:bg-[#364c7655] [&.selected]:shadow-[inset_2px_0_#8ea6e6] [&.meta]:text-[#6b7283] [.large-diff_&]:h-[var(--diff-row-height)] [.large-diff_&]:min-h-[var(--diff-row-height)] [.large-diff_&_code]:whitespace-pre [.large-diff_&_code]:[overflow-wrap:normal] [&.delete_.diff-inline-change]:text-[#fff0f2] [&.delete_.diff-inline-change]:bg-[#b83e53] [&.delete_.diff-inline-change]:rounded-[2px] [&.delete_.diff-inline-change]:shadow-[inset_0_-1px_#ff8c9d] [&.add_.diff-inline-change]:text-[#ecfff1] [&.add_.diff-inline-change]:bg-[#237443] [&.add_.diff-inline-change]:rounded-[2px] [&.add_.diff-inline-change]:shadow-[inset_0_-1px_#79dfa0] overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&:first-child]:border-r-[1px] [&:first-child]:border-solid [&:first-child]:border-r-[#353d4d] [&_code]:min-w-0 [&_code]:flex-1 [&_code]:whitespace-pre [.wrap-lines_&]:w-full [.wrap-lines_&]:min-w-0 [.wrap-lines_&_code]:min-w-0 [.wrap-lines_&_code]:flex-1 [.wrap-lines_&_code]:whitespace-pre-wrap [.wrap-lines_&_code]:[overflow-wrap:anywhere] [&.empty-cell]:bg-[#ffffff03]"
+                      class="diff-line split-cell block items-stretch min-h-[var(--diff-row-height)] text-[length:var(--diff-font-size)] leading-[var(--diff-row-height)] whitespace-pre min-w-0 w-full [&_code]:pr-[12px] [&_code]:text-[var(--fg-secondary)] [&_code]:[tab-size:2] [&.add]:bg-[var(--success-bg)] [&.add_code]:text-[var(--success)] [&.add_.line-sign]:text-[var(--success)] [&.add_.line-number]:bg-[var(--success-bg)] [&.add_.line-number]:text-[var(--success)] [&.delete]:bg-[var(--danger-bg)] [&.delete_code]:text-[var(--danger)] [&.delete_.line-sign]:text-[var(--danger)] [&.delete_.line-number]:bg-[var(--danger-bg)] [&.delete_.line-number]:text-[var(--danger)] [&.selected]:bg-[var(--selection)] [&.selected]:shadow-[inset_2px_0_#8ea6e6] [&.meta]:text-[var(--muted)] [.large-diff_&]:h-[var(--diff-row-height)] [.large-diff_&]:min-h-[var(--diff-row-height)] [.large-diff_&_code]:whitespace-pre [.large-diff_&_code]:[overflow-wrap:normal] [&.delete_.diff-inline-change]:text-[var(--fg)] [&.delete_.diff-inline-change]:bg-[color-mix(in_srgb,var(--danger)_30%,var(--danger-bg))] [&.delete_.diff-inline-change]:rounded-[2px] [&.delete_.diff-inline-change]:shadow-[inset_0_-1px_#ff8c9d] [&.add_.diff-inline-change]:text-[var(--fg)] [&.add_.diff-inline-change]:bg-[color-mix(in_srgb,var(--success)_30%,var(--success-bg))] [&.add_.diff-inline-change]:rounded-[2px] [&.add_.diff-inline-change]:shadow-[inset_0_-1px_#79dfa0] overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&:first-child]:border-r-[1px] [&:first-child]:border-solid [&:first-child]:border-r-[var(--line)] [&_code]:min-w-0 [&_code]:flex-1 [&_code]:whitespace-pre [.wrap-lines_&]:w-full [.wrap-lines_&]:min-w-0 [.wrap-lines_&_code]:min-w-0 [.wrap-lines_&_code]:flex-1 [.wrap-lines_&_code]:whitespace-pre-wrap [.wrap-lines_&_code]:[overflow-wrap:anywhere] [&.empty-cell]:bg-[var(--raised)]"
                       :class="[
                         row[side]?.kind,
                         {
@@ -534,7 +539,7 @@ function context() {
                               row[side]!.kind === 'add' ||
                               row[side]!.kind === 'delete'
                             "
-                            class="line-select flex justify-center items-center w-[20px] min-w-[20px] max-w-[20px] min-h-[var(--diff-row-height)] rounded-none p-0 text-[15px] opacity-[0.5] text-[#8998b6] leading-[1] hover:opacity-[1]"
+                            class="line-select flex justify-center items-center w-[20px] min-w-[20px] max-w-[20px] min-h-[var(--diff-row-height)] rounded-none p-0 text-[15px] opacity-[0.5] text-[var(--muted)] leading-[1] hover:opacity-[1]"
                             :aria-label="`Select ${side === 'left' ? 'old' : 'new'} line ${row[side]!.old || row[side]!.next}`"
                             :aria-pressed="selected.has(row[side]!.index)"
                             @click="toggle(row[side]!.index)"
@@ -545,16 +550,16 @@ function context() {
                             /><span v-else>&middot;</span></AppButton
                           ><span
                             v-else
-                            class="line-select flex justify-center items-center w-[20px] min-w-[20px] max-w-[20px] min-h-[var(--diff-row-height)] rounded-none p-0 text-[15px] opacity-[0.5] text-[#8998b6] leading-[1] hover:opacity-[1]"
+                            class="line-select flex justify-center items-center w-[20px] min-w-[20px] max-w-[20px] min-h-[var(--diff-row-height)] rounded-none p-0 text-[15px] opacity-[0.5] text-[var(--muted)] leading-[1] hover:opacity-[1]"
                           />
                           <span
-                            class="line-number w-[34px] shrink-0 text-right pr-[8px] text-[#4f596a] select-none text-[10px]"
+                            class="line-number w-[34px] shrink-0 text-right pr-[8px] text-[var(--muted)] select-none text-[10px]"
                             >{{
                               side === "left" ? row[side]!.old : row[side]!.next
                             }}</span
                           >
                           <span
-                            class="line-sign w-[20px] shrink-0 text-center text-[#6f7d91] select-none"
+                            class="line-sign w-[20px] shrink-0 text-center text-[var(--muted)] select-none"
                             >{{
                               row[side]!.kind === "add"
                                 ? "+"
@@ -577,7 +582,7 @@ function context() {
                                 ]"
                                 :key="i"
                                 :class="token.classes"
-                                :style="token.color ? { '--syntax-color': token.color } : undefined"
+                                :style="token.color ? { '--syntax-color': token.color, '--syntax-light-color': token.lightColor } : undefined"
                                 >{{ token.text }}</span
                               ></template
                             ><template v-else>{{
@@ -595,12 +600,12 @@ function context() {
                   <div
                     v-for="line in hunk.visibleLines"
                     :key="line.index"
-                    class="diff-line flex items-stretch min-h-[var(--diff-row-height)] text-[length:var(--diff-font-size)] leading-[var(--diff-row-height)] whitespace-pre min-w-full w-max [&_code]:pr-[25px] [&_code]:text-[#b5bdce] [&_code]:[tab-size:2] [&.add]:bg-[#23834b40] [&.add_code]:text-[#c0f0ce] [&.add_.line-sign]:text-[#87e5a6] [&.add_.line-number]:bg-[#23834b50] [&.add_.line-number]:text-[#9cdbaf] [&.delete]:bg-[#c7435140] [&.delete_code]:text-[#ffd0d5] [&.delete_.line-sign]:text-[#ff98a3] [&.delete_.line-number]:bg-[#c7435150] [&.delete_.line-number]:text-[#f1a6af] [&.selected]:bg-[#364c7655] [&.selected]:shadow-[inset_2px_0_#8ea6e6] [&.meta]:text-[#6b7283] [.large-diff_&]:h-[var(--diff-row-height)] [.large-diff_&]:min-h-[var(--diff-row-height)] [&.delete_.diff-inline-change]:text-[#fff0f2] [&.delete_.diff-inline-change]:bg-[#b83e53] [&.delete_.diff-inline-change]:rounded-[2px] [&.delete_.diff-inline-change]:shadow-[inset_0_-1px_#ff8c9d] [&.add_.diff-inline-change]:text-[#ecfff1] [&.add_.diff-inline-change]:bg-[#237443] [&.add_.diff-inline-change]:rounded-[2px] [&.add_.diff-inline-change]:shadow-[inset_0_-1px_#79dfa0] [.wrap-lines_&]:w-full [.wrap-lines_&]:min-w-0 [.wrap-lines_&_code]:min-w-0 [.wrap-lines_&_code]:flex-1 [.wrap-lines_&_code]:whitespace-pre-wrap [.wrap-lines_&_code]:[overflow-wrap:anywhere]"
+                    class="diff-line flex items-stretch min-h-[var(--diff-row-height)] text-[length:var(--diff-font-size)] leading-[var(--diff-row-height)] whitespace-pre min-w-full w-max [&_code]:pr-[25px] [&_code]:text-[var(--fg-secondary)] [&_code]:[tab-size:2] [&.add]:bg-[var(--success-bg)] [&.add_code]:text-[var(--success)] [&.add_.line-sign]:text-[var(--success)] [&.add_.line-number]:bg-[var(--success-bg)] [&.add_.line-number]:text-[var(--success)] [&.delete]:bg-[var(--danger-bg)] [&.delete_code]:text-[var(--danger)] [&.delete_.line-sign]:text-[var(--danger)] [&.delete_.line-number]:bg-[var(--danger-bg)] [&.delete_.line-number]:text-[var(--danger)] [&.selected]:bg-[var(--selection)] [&.selected]:shadow-[inset_2px_0_#8ea6e6] [&.meta]:text-[var(--muted)] [.large-diff_&]:h-[var(--diff-row-height)] [.large-diff_&]:min-h-[var(--diff-row-height)] [&.delete_.diff-inline-change]:text-[var(--fg)] [&.delete_.diff-inline-change]:bg-[color-mix(in_srgb,var(--danger)_30%,var(--danger-bg))] [&.delete_.diff-inline-change]:rounded-[2px] [&.delete_.diff-inline-change]:shadow-[inset_0_-1px_#ff8c9d] [&.add_.diff-inline-change]:text-[var(--fg)] [&.add_.diff-inline-change]:bg-[color-mix(in_srgb,var(--success)_30%,var(--success-bg))] [&.add_.diff-inline-change]:rounded-[2px] [&.add_.diff-inline-change]:shadow-[inset_0_-1px_#79dfa0] [.wrap-lines_&]:w-full [.wrap-lines_&]:min-w-0 [.wrap-lines_&_code]:min-w-0 [.wrap-lines_&_code]:flex-1 [.wrap-lines_&_code]:whitespace-pre-wrap [.wrap-lines_&_code]:[overflow-wrap:anywhere]"
                     :class="[line.kind, { selected: selected.has(line.index) }]"
                   >
                     <AppButton
                       v-if="line.kind === 'add' || line.kind === 'delete'"
-                      class="line-select flex justify-center items-center w-[20px] min-w-[20px] max-w-[20px] min-h-[var(--diff-row-height)] rounded-none p-0 text-[15px] opacity-[0.5] text-[#8998b6] leading-[1] hover:opacity-[1]"
+                      class="line-select flex justify-center items-center w-[20px] min-w-[20px] max-w-[20px] min-h-[var(--diff-row-height)] rounded-none p-0 text-[15px] opacity-[0.5] text-[var(--muted)] leading-[1] hover:opacity-[1]"
                       :aria-label="`Select changed line ${line.next || line.old}`"
                       :aria-pressed="selected.has(line.index)"
                       @click="toggle(line.index)"
@@ -611,16 +616,16 @@ function context() {
                       ></AppButton
                     ><span
                       v-else
-                      class="line-select flex justify-center items-center w-[20px] min-w-[20px] max-w-[20px] min-h-[var(--diff-row-height)] rounded-none p-0 text-[15px] opacity-[0.5] text-[#8998b6] leading-[1] hover:opacity-[1]"
+                      class="line-select flex justify-center items-center w-[20px] min-w-[20px] max-w-[20px] min-h-[var(--diff-row-height)] rounded-none p-0 text-[15px] opacity-[0.5] text-[var(--muted)] leading-[1] hover:opacity-[1]"
                     />
                     <span
-                      class="line-number w-[34px] shrink-0 text-right pr-[8px] text-[#4f596a] select-none text-[10px]"
+                      class="line-number w-[34px] shrink-0 text-right pr-[8px] text-[var(--muted)] select-none text-[10px]"
                       >{{ line.old }}</span
                     ><span
-                      class="line-number w-[34px] shrink-0 text-right pr-[8px] text-[#4f596a] select-none text-[10px]"
+                      class="line-number w-[34px] shrink-0 text-right pr-[8px] text-[var(--muted)] select-none text-[10px]"
                       >{{ line.next }}</span
                     ><span
-                      class="line-sign w-[20px] shrink-0 text-center text-[#6f7d91] select-none"
+                      class="line-sign w-[20px] shrink-0 text-center text-[var(--muted)] select-none"
                       >{{
                         line.kind === "add"
                           ? "+"
@@ -642,7 +647,7 @@ function context() {
                           ]"
                           :key="i"
                           :class="token.classes"
-                          :style="token.color ? { '--syntax-color': token.color } : undefined"
+                          :style="token.color ? { '--syntax-color': token.color, '--syntax-light-color': token.lightColor } : undefined"
                           >{{ token.text }}</span
                         ></template
                       ><template v-else>{{
@@ -659,7 +664,7 @@ function context() {
               </section>
               <pre
                 v-if="!file.hunks.length"
-                class="plain-output text-[11px] py-[15px] px-[18px] text-[#9ba5bb] [.large-diff_&]:m-0 [.large-diff_&]:p-[12px] [.large-diff_&]:leading-[20px] [.large-diff_&]:whitespace-pre [:where(&)]:font-['Cascadia_Code',_'JetBrains_Mono',_Consolas,_monospace] [:where(&)]:whitespace-pre-wrap [:where(&)]:[word-break:break-word] [:where(&)]:leading-[1.7]"
+                class="plain-output text-[11px] py-[15px] px-[18px] text-[var(--fg-secondary)] [.large-diff_&]:m-0 [.large-diff_&]:p-[12px] [.large-diff_&]:leading-[20px] [.large-diff_&]:whitespace-pre [:where(&)]:font-['Cascadia_Code',_'JetBrains_Mono',_Consolas,_monospace] [:where(&)]:whitespace-pre-wrap [:where(&)]:[word-break:break-word] [:where(&)]:leading-[1.7]"
                 :style="large ? { height: `${file.plainHeight}px` } : undefined"
                 >{{
                   file.header ||
@@ -677,7 +682,7 @@ function context() {
           <div
             v-for="side in ['left', 'right'] as const"
             :key="side"
-            class="side-scrollbar [overflow-x:scroll] overflow-y-hidden min-w-0 h-[16px] [&:first-child]:border-r-[1px] [&:first-child]:border-solid [&:first-child]:border-r-[#353d4d] [&_code]:block [&_code]:[box-sizing:content-box] [&_code]:w-max [&_code]:[min-width:calc(100%_-_86px)] [&_code]:pl-[74px] [&_code]:pr-[12px] [&_code]:h-[1px] [&_code]:text-[length:var(--diff-font-size)] [&_code]:whitespace-pre [&_code]:[visibility:hidden]"
+            class="side-scrollbar [overflow-x:scroll] overflow-y-hidden min-w-0 h-[16px] [&:first-child]:border-r-[1px] [&:first-child]:border-solid [&:first-child]:border-r-[var(--line)] [&_code]:block [&_code]:[box-sizing:content-box] [&_code]:w-max [&_code]:[min-width:calc(100%_-_86px)] [&_code]:pl-[74px] [&_code]:pr-[12px] [&_code]:h-[1px] [&_code]:text-[length:var(--diff-font-size)] [&_code]:whitespace-pre [&_code]:[visibility:hidden]"
             tabindex="0"
             role="region"
             :data-scroll-side="side"

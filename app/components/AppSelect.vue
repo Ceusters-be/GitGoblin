@@ -43,7 +43,7 @@ function choose(value: unknown) {
   >
     <SelectTrigger
       v-bind="$attrs"
-      class="flex min-w-0 items-center justify-between gap-[8px] text-left disabled:cursor-not-allowed disabled:opacity-40 [:where(&)]:[font:inherit] [:where(&)]:text-[inherit] [:where(&)]:bg-[#101115] [:where(&)]:border-[1px] [:where(&)]:border-solid [:where(&)]:border-[#343640] [:where(&)]:rounded-[6px] [:where(&)]:py-[9px] [:where(&)]:px-[10px] [:where(&)]:outline-none [:where(&)]:min-w-0 [:where(&:focus)]:[border-color:#8092d2] [:where(&:focus)]:shadow-[0_0_0_2px_#8297ec12]"
+      class="flex min-w-0 items-center justify-between gap-[8px] text-left disabled:cursor-not-allowed disabled:opacity-40 [:where(&)]:[font:inherit] [:where(&)]:text-[inherit] [:where(&)]:bg-[var(--bg)] [:where(&)]:border-[1px] [:where(&)]:border-solid [:where(&)]:border-[var(--line)] [:where(&)]:rounded-[6px] [:where(&)]:py-[9px] [:where(&)]:px-[10px] [:where(&)]:outline-none [:where(&)]:min-w-0 [:where(&:focus)]:[border-color:var(--accent)] [:where(&:focus)]:shadow-[0_0_0_2px_#8297ec12]"
     >
       <SelectValue class="truncate" :placeholder="placeholder" /><ChevronDown
         :size="13"

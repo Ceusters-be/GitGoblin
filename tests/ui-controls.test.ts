@@ -5,6 +5,7 @@ import { ModuleKind, transpile } from "typescript";
 import * as Vue from "vue";
 import * as Reka from "reka-ui";
 import * as Icons from "lucide-vue-next";
+import * as theme from '../app/composables/useTheme';
 import { afterEach, expect, it, vi } from "vitest";
 
 // Exercise the production templates and Reka controls, including their portals.
@@ -21,6 +22,7 @@ function component(name: string): Vue.Component {
     vue: Vue,
     "reka-ui": Reka,
     "lucide-vue-next": Icons,
+    "~/composables/useTheme": theme,
   };
   new Function(
     "require",
@@ -46,6 +48,9 @@ function mount(render: () => Vue.VNode) {
   const host = document.createElement("div");
   document.body.append(host);
   const app = Vue.createApp({ setup: () => render });
+  app.component('AppButton', AppButton);
+  app.component('AppDialog', AppDialog);
+  app.component('AppDialogPanel', component('AppDialogPanel'));
   app.mount(host);
   cleanup.push(() => {
     app.unmount();
@@ -267,4 +272,20 @@ it("opens a context menu at a requested location and invokes the chosen action",
   await vi.waitFor(() =>
     expect(document.querySelector('[role="menu"]')).toBeNull(),
   );
+});
+
+it('opens settings categories by keyboard and emits the selected theme', async () => {
+  const settings = component('AppSettings');
+  const chosen = vi.fn();
+  mount(() => Vue.h(settings, { theme: 'system', error: '', onTheme: chosen }));
+  await Vue.nextTick();
+  const midnight = document.querySelector<HTMLButtonElement>('button[aria-label="Midnight"]')!;
+  expect(midnight).not.toBeNull();
+  midnight.click();
+  expect(chosen).toHaveBeenCalledWith('midnight');
+  const appearance = document.querySelector<HTMLButtonElement>('[role="tab"][data-state="active"]')!;
+  appearance.focus();
+  key(appearance, 'ArrowDown');
+  await Vue.nextTick(); await Vue.nextTick();
+  expect(document.activeElement?.textContent).toContain('Shortcuts');
 });

@@ -102,7 +102,7 @@ onUnmounted(() => observer?.disconnect());
 <template>
   <div
     ref="handle"
-    class="pane-resize absolute top-0 bottom-0 right-[-4px] w-[8px] z-[30] cursor-col-resize touch-none outline-none [&::after]:[content:''] [&::after]:absolute [&::after]:[inset:0_3px] [&::after]:bg-[transparent] [&::after]:[transition:background_.12s] [&.reverse]:right-auto [&.reverse]:left-[-4px] [&.horizontal]:top-auto [&.horizontal]:left-0 [&.horizontal]:right-0 [&.horizontal]:bottom-[-4px] [&.horizontal]:w-auto [&.horizontal]:h-[8px] [&.horizontal]:cursor-row-resize [&.horizontal.reverse]:top-[-4px] [&.horizontal.reverse]:bottom-auto [&.horizontal::after]:[inset:3px_0] [&:hover::after]:bg-[#9baef2] [&:focus-visible::after]:bg-[#9baef2] [&.dragging::after]:bg-[#9baef2]"
+    class="pane-resize absolute top-0 bottom-0 right-[-4px] w-[8px] z-[30] cursor-col-resize touch-none outline-none [&::after]:[content:''] [&::after]:absolute [&::after]:[inset:0_3px] [&::after]:bg-[transparent] [&::after]:[transition:background_.12s] [&.reverse]:right-auto [&.reverse]:left-[-4px] [&.horizontal]:top-auto [&.horizontal]:left-0 [&.horizontal]:right-0 [&.horizontal]:bottom-[-4px] [&.horizontal]:w-auto [&.horizontal]:h-[8px] [&.horizontal]:cursor-row-resize [&.horizontal.reverse]:top-[-4px] [&.horizontal.reverse]:bottom-auto [&.horizontal::after]:[inset:3px_0] [&:hover::after]:bg-[var(--accent)] [&:focus-visible::after]:bg-[var(--accent)] [&.dragging::after]:bg-[var(--accent)]"
     :class="{ horizontal, reverse, dragging }"
     role="separator"
     tabindex="0"

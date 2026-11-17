@@ -1,12 +1,20 @@
 @import "tailwindcss";
 @source "../../nuxt.config.ts";
 
-@theme {
-  --color-ui-menu: #1b202b;
-  --color-ui-hover: #303b50;
-  --color-ui-selected: #293348;
-  --color-ui-border: #35405a;
-  --color-ui-text: #d7deed;
-  --color-ui-muted: #8e9bb4;
-  --color-ui-accent: #a7b6ff;
+@font-face {
+  font-family: Inter;
+  src: url('/fonts/inter-latin-wght-normal.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@theme inline {
+  --color-ui-menu: var(--raised);
+  --color-ui-hover: var(--hover);
+  --color-ui-selected: var(--selection);
+  --color-ui-border: var(--line);
+  --color-ui-text: var(--fg);
+  --color-ui-muted: var(--muted);
+  --color-ui-accent: var(--accent);
 }

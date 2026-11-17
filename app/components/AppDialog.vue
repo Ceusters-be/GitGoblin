@@ -34,7 +34,7 @@ function restoreFocus() {
   >
     <DialogPortal>
       <DialogOverlay
-        class="fixed inset-0 z-[100] bg-[#070a11b8] backdrop-blur-[5px]"
+        class="fixed inset-0 z-[100] bg-[var(--scrim)] backdrop-blur-[5px]"
       />
       <DialogContent
         v-bind="$attrs"

@@ -73,7 +73,7 @@ defineExpose({ open, close });
             :title="item.disabledReason"
             class="flex cursor-pointer flex-col gap-[3px] rounded-[4px] px-[10px] py-[7px] outline-none data-[highlighted]:bg-ui-hover data-[disabled]:pointer-events-none data-[disabled]:opacity-40"
             :class="{
-              'text-[#ef9ca7] data-[highlighted]:bg-[#c743511a]': item.danger,
+              'text-[var(--danger)] data-[highlighted]:bg-[var(--danger-bg)]': item.danger,
             }"
             @select="choose(item)"
           >

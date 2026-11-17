@@ -915,12 +915,12 @@ defineExpose({
 <template>
   <section
     id="conversation-panel"
-    class="chat-panel border-l-[1px] border-solid border-l-[var(--line)] flex flex-col min-h-0 bg-[#15161b] min-w-0 relative font-['Segoe_UI_Variable_Text',_'Segoe_UI',_-apple-system,_BlinkMacSystemFont,_system-ui,_sans-serif] [&_.streaming-label]:inline-flex [&_.streaming-label]:items-center [&_.streaming-label]:gap-[5px] [&_.streaming-label]:ml-[8px] [&_.streaming-label]:text-[#9baed4]"
+    class="chat-panel border-l-[1px] border-solid border-l-[var(--line)] flex flex-col min-h-0 bg-[var(--bg)] min-w-0 relative  [&_.streaming-label]:inline-flex [&_.streaming-label]:items-center [&_.streaming-label]:gap-[5px] [&_.streaming-label]:ml-[8px] [&_.streaming-label]:text-[var(--fg-secondary)] [font-family:inherit]"
     aria-label="Chat"
   >
     <div
       v-if="!example && state === 'connecting'"
-      class="chat-connection flex items-center gap-[7px] text-[9px] text-[#768198] py-[13px] px-[16px] border-b-[1px] border-solid border-b-[#22252e]"
+      class="chat-connection flex items-center gap-[7px] text-[9px] text-[var(--muted)] py-[13px] px-[16px] border-b-[1px] border-solid border-b-[var(--raised)]"
       role="status"
     >
       Connecting to T3 Code…
@@ -928,14 +928,14 @@ defineExpose({
     <template v-if="example">
       <div
         ref="conversationBody"
-        class="conversation-body flex-1 overflow-auto py-[20px] px-[16px] [@media(max-width:1250px)]:py-[16px] [@media(max-width:1250px)]:px-[13px] [&_.message_p]:text-[13px] [&_.message_p]:leading-[1.7] [&_.message_p]:text-[#d4d7df]"
+        class="conversation-body flex-1 overflow-auto py-[20px] px-[16px] [@media(max-width:1250px)]:py-[16px] [@media(max-width:1250px)]:px-[13px] [&_.message_p]:text-[13px] [&_.message_p]:leading-[1.7] [&_.message_p]:text-[var(--fg)]"
         @scroll="trackConversationScroll"
       >
         <div
-          class="message user pb-[20px] [&_p]:text-[12px] [&_p]:leading-[1.9] [&_p]:text-[#b5bfd3] [&.user]:p-[14px] [&.user]:border-0 [&.user]:bg-[#20242e] [&.user]:rounded-[8px] [&.user]:mb-[22px] [&.user_.message-role]:text-[#7f8fab] [@media(min-width:1650px)]:[&_p]:text-[13px]"
+          class="message user pb-[20px] [&_p]:text-[12px] [&_p]:leading-[1.9] [&_p]:text-[var(--fg-secondary)] [&.user]:p-[14px] [&.user]:border-0 [&.user]:bg-[var(--panel)] [&.user]:rounded-[8px] [&.user]:mb-[22px] [&.user_.message-role]:text-[var(--muted)] [@media(min-width:1650px)]:[&_p]:text-[13px]"
         >
           <span
-            class="message-role flex items-center gap-[7px] text-[#8fa0c2] text-[9px] tracking-[1px] mb-[11px] [text-transform:uppercase] [&_small]:ml-auto [&_small]:text-[#56647f] [&_small]:tracking-normal [&_small]:text-[9px]"
+            class="message-role flex items-center gap-[7px] text-[var(--fg-secondary)] text-[9px] tracking-[1px] mb-[11px] [text-transform:uppercase] [&_small]:ml-auto [&_small]:text-[var(--muted)] [&_small]:tracking-normal [&_small]:text-[9px]"
             >YOU <small class="[:where(&)]:text-[11px]">10:42</small></span
           >
           <p>
@@ -944,10 +944,10 @@ defineExpose({
           </p>
         </div>
         <div
-          class="message pb-[20px] [&_p]:text-[12px] [&_p]:leading-[1.9] [&_p]:text-[#b5bfd3] [&.user]:p-[14px] [&.user]:border-0 [&.user]:bg-[#20242e] [&.user]:rounded-[8px] [&.user]:mb-[22px] [&.user_.message-role]:text-[#7f8fab] [@media(min-width:1650px)]:[&_p]:text-[13px]"
+          class="message pb-[20px] [&_p]:text-[12px] [&_p]:leading-[1.9] [&_p]:text-[var(--fg-secondary)] [&.user]:p-[14px] [&.user]:border-0 [&.user]:bg-[var(--panel)] [&.user]:rounded-[8px] [&.user]:mb-[22px] [&.user_.message-role]:text-[var(--muted)] [@media(min-width:1650px)]:[&_p]:text-[13px]"
         >
           <span
-            class="message-role flex items-center gap-[7px] text-[#8fa0c2] text-[9px] tracking-[1px] mb-[11px] [text-transform:uppercase] [&_small]:ml-auto [&_small]:text-[#56647f] [&_small]:tracking-normal [&_small]:text-[9px]"
+            class="message-role flex items-center gap-[7px] text-[var(--fg-secondary)] text-[9px] tracking-[1px] mb-[11px] [text-transform:uppercase] [&_small]:ml-auto [&_small]:text-[var(--muted)] [&_small]:tracking-normal [&_small]:text-[9px]"
             ><Bot :size="15" /> ASSISTANT</span
           >
           <p>
@@ -955,10 +955,10 @@ defineExpose({
             file selection and scroll position stay in place as changes arrive.
           </p>
           <div
-            class="activity flex items-center gap-[8px] my-[15px] mx-0 py-[10px] px-0 border-t-[1px] border-solid border-t-[#282e3b] border-b-[1px] border-b-[#282e3b] text-[10px] text-[#7a88a3] [&_.green]:ml-auto [&_.green]:text-[9px]"
+            class="activity flex items-center gap-[8px] my-[15px] mx-0 py-[10px] px-0 border-t-[1px] border-solid border-t-[var(--line)] border-b-[1px] border-b-[var(--line)] text-[10px] text-[var(--muted)] [&_.green]:ml-auto [&_.green]:text-[9px]"
           >
             <span
-              class="activity-line w-[5px] h-[5px] rounded-full bg-[#829bc3]"
+              class="activity-line w-[5px] h-[5px] rounded-full bg-[var(--selection)]"
             /><span
               >Updated
               <code
@@ -972,7 +972,7 @@ defineExpose({
           </p>
         </div>
         <div
-          class="example-note text-[10px] text-[#5a6780] text-center leading-[1.9] my-[15px] mx-0"
+          class="example-note text-[10px] text-[var(--muted)] text-center leading-[1.9] my-[15px] mx-0"
         >
           Example content for interface preview.<br />No agent is running.
         </div>
@@ -989,18 +989,18 @@ defineExpose({
       />
       <div
         v-if="activeMatchingThreads.length > 1"
-        class="shared-note text-[10px] leading-[1.6] pt-0 px-[16px] pb-[10px] text-[#a89873]"
+        class="shared-note text-[10px] leading-[1.6] pt-0 px-[16px] pb-[10px] text-[var(--warning)]"
       >
         {{ activeMatchingThreads.length }} agents are working in this worktree.
       </div>
       <div
         ref="conversationBody"
-        class="conversation-body flex-1 overflow-auto py-[20px] px-[16px] [@media(max-width:1250px)]:py-[16px] [@media(max-width:1250px)]:px-[13px] [&_.message_p]:text-[13px] [&_.message_p]:leading-[1.7] [&_.message_p]:text-[#d4d7df]"
+        class="conversation-body flex-1 overflow-auto py-[20px] px-[16px] [@media(max-width:1250px)]:py-[16px] [@media(max-width:1250px)]:px-[13px] [&_.message_p]:text-[13px] [&_.message_p]:leading-[1.7] [&_.message_p]:text-[var(--fg)]"
         @scroll="trackConversationScroll"
       >
         <div
           v-if="!thread"
-          class="panel-empty flex flex-col items-center justify-center text-center gap-[16px] py-[35px] px-[24px] text-[#7c879d] flex-1 [&_p]:text-[12px] [&_p]:leading-[1.8] [&_p]:max-w-[300px] [&_h3]:text-[#c1c9dc]"
+          class="panel-empty flex flex-col items-center justify-center text-center gap-[16px] py-[35px] px-[24px] text-[var(--muted)] flex-1 [&_p]:text-[12px] [&_p]:leading-[1.8] [&_p]:max-w-[300px] [&_h3]:text-[var(--fg-secondary)]"
         >
           <MessageSquare :size="26" />
           <p>Open a chat from All chats, or start a new conversation.</p>
@@ -1012,7 +1012,7 @@ defineExpose({
           <div
             v-for="message in turn.users"
             :key="message.id"
-            class="message user pb-[20px] [&_p]:text-[12px] [&_p]:leading-[1.9] [&_p]:text-[#b5bfd3] [&.user]:p-[14px] [&.user]:border-0 [&.user]:bg-[#20242e] [&.user]:rounded-[8px] [&.user]:mb-[22px] [&.user_.message-role]:text-[#7f8fab] [@media(min-width:1650px)]:[&_p]:text-[13px]"
+            class="message user pb-[20px] [&_p]:text-[12px] [&_p]:leading-[1.9] [&_p]:text-[var(--fg-secondary)] [&.user]:p-[14px] [&.user]:border-0 [&.user]:bg-[var(--panel)] [&.user]:rounded-[8px] [&.user]:mb-[22px] [&.user_.message-role]:text-[var(--muted)] [@media(min-width:1650px)]:[&_p]:text-[13px]"
           >
             <template
               v-for="attachment in message.attachments || []"
@@ -1029,7 +1029,7 @@ defineExpose({
           <ChatSubagents :agents="turn.subagents" />
           <details
             v-if="turn.work.length || turn.activities.length"
-            class="work-details mt-[8px] mx-0 mb-[12px] text-[#8e9bb4] [&_summary]:flex [&_summary]:items-center [&_summary]:gap-[5px] [&_summary]:w-[fit-content] [&_summary]:py-[8px] [&_summary]:px-0 [&_summary]:cursor-pointer [&_summary]:text-[12px] [&_summary]:list-none [&_summary::-webkit-details-marker]:hidden [&[open]_summary_svg]:rotate-90 [&_summary:hover]:text-[#c1c9dc]"
+            class="work-details mt-[8px] mx-0 mb-[12px] text-[var(--muted)] [&_summary]:flex [&_summary]:items-center [&_summary]:gap-[5px] [&_summary]:w-[fit-content] [&_summary]:py-[8px] [&_summary]:px-0 [&_summary]:cursor-pointer [&_summary]:text-[12px] [&_summary]:list-none [&_summary::-webkit-details-marker]:hidden [&[open]_summary_svg]:rotate-90 [&_summary:hover]:text-[var(--fg-secondary)]"
           >
             <summary>
               {{ turn.summary === "Working…" ? "Activity" : turn.summary
@@ -1041,7 +1041,7 @@ defineExpose({
               <div
                 v-for="message in turn.work"
                 :key="message.id"
-                class="message pb-[20px] [&_p]:text-[12px] [&_p]:leading-[1.9] [&_p]:text-[#b5bfd3] [&.user]:p-[14px] [&.user]:border-0 [&.user]:bg-[#20242e] [&.user]:rounded-[8px] [&.user]:mb-[22px] [&.user_.message-role]:text-[#7f8fab] [@media(min-width:1650px)]:[&_p]:text-[13px]"
+                class="message pb-[20px] [&_p]:text-[12px] [&_p]:leading-[1.9] [&_p]:text-[var(--fg-secondary)] [&.user]:p-[14px] [&.user]:border-0 [&.user]:bg-[var(--panel)] [&.user]:rounded-[8px] [&.user]:mb-[22px] [&.user_.message-role]:text-[var(--muted)] [@media(min-width:1650px)]:[&_p]:text-[13px]"
               >
                 <ChatMarkdown
                   :text="message.text"
@@ -1051,7 +1051,7 @@ defineExpose({
               <div
                 v-for="activity in turn.activities"
                 :key="activity.id"
-                class="chat-activity flex items-center gap-[7px] min-h-[25px] text-[11px] text-[#8e9bb4] [&_svg]:shrink-0 [&_span]:overflow-hidden [&_span]:whitespace-nowrap [&_span]:text-ellipsis"
+                class="chat-activity flex items-center gap-[7px] min-h-[25px] text-[11px] text-[var(--muted)] [&_svg]:shrink-0 [&_span]:overflow-hidden [&_span]:whitespace-nowrap [&_span]:text-ellipsis"
                 :title="activity.title"
               >
                 <CircleAlert
@@ -1059,12 +1059,12 @@ defineExpose({
                     activity.status === 'failed' || activity.status === 'error'
                   "
                   :size="13"
-                  class="activity-error text-[#e48791]"
+                  class="activity-error text-[var(--danger)]"
                 />
                 <Check
                   v-else-if="activity.status === 'completed'"
                   :size="13"
-                  class="activity-done text-[#81bda2]"
+                  class="activity-done text-[var(--success)]"
                 />
                 <LoaderCircle
                   v-else-if="
@@ -1086,7 +1086,7 @@ defineExpose({
           </details>
           <div
             v-if="turn.final"
-            class="message final-message pb-[20px] [&_p]:text-[12px] [&_p]:leading-[1.9] [&_p]:text-[#b5bfd3] [&.user]:p-[14px] [&.user]:border-0 [&.user]:bg-[#20242e] [&.user]:rounded-[8px] [&.user]:mb-[22px] [&.user_.message-role]:text-[#7f8fab] [@media(min-width:1650px)]:[&_p]:text-[13px] pt-[4px]"
+            class="message final-message pb-[20px] [&_p]:text-[12px] [&_p]:leading-[1.9] [&_p]:text-[var(--fg-secondary)] [&.user]:p-[14px] [&.user]:border-0 [&.user]:bg-[var(--panel)] [&.user]:rounded-[8px] [&.user]:mb-[22px] [&.user_.message-role]:text-[var(--muted)] [@media(min-width:1650px)]:[&_p]:text-[13px] pt-[4px]"
           >
             <ChatMarkdown
               :text="turn.final.text"
@@ -1107,7 +1107,7 @@ defineExpose({
         <div
           v-for="request in requests"
           :key="request.id"
-          class="approval p-[12px] border-[1px] border-solid border-[#735e3b] bg-[#30291e] rounded-[6px] my-[10px] mx-0 [&_strong]:flex [&_strong]:items-center [&_strong]:gap-[8px] [&_strong]:text-[11px] [&_strong]:text-[#d5bb8c] [&_pre]:text-[10px] [&_pre]:max-h-[200px] [&_pre]:overflow-auto [&_pre]:my-[10px] [&_pre]:mx-0 [&_p]:text-[11px] [&_p]:mt-[10px]"
+          class="approval p-[12px] border-[1px] border-solid border-[var(--line)] bg-[var(--warning-bg)] rounded-[6px] my-[10px] mx-0 [&_strong]:flex [&_strong]:items-center [&_strong]:gap-[8px] [&_strong]:text-[11px] [&_strong]:text-[var(--warning)] [&_pre]:text-[10px] [&_pre]:max-h-[200px] [&_pre]:overflow-auto [&_pre]:my-[10px] [&_pre]:mx-0 [&_p]:text-[11px] [&_p]:mt-[10px]"
         >
           <strong><ShieldCheck :size="15" />{{ request.kind }}</strong>
           <pre
@@ -1131,13 +1131,13 @@ defineExpose({
             class="button-row flex items-center gap-[5px]"
           >
             <AppButton
-              class="small text-[11px] py-[4px] px-[7px] [border-color:#30343f] rounded-[4px]"
+              class="small text-[11px] py-[4px] px-[7px] [border-color:var(--line)] rounded-[4px]"
               @click="respond(request.id, 'decline')"
             >
               Decline</AppButton
             ><AppButton
               variant="primary"
-              class="primary small [border-color:#30343f] text-[11px] py-[4px] px-[7px] rounded-[4px]"
+              class="primary small [border-color:var(--line)] text-[11px] py-[4px] px-[7px] rounded-[4px]"
               @click="respond(request.id, 'accept')"
             >
               Approve once
@@ -1149,10 +1149,10 @@ defineExpose({
     </template>
     <div
       v-else
-      class="panel-empty chat-empty flex flex-col items-center justify-center text-center gap-[18px] py-[35px] px-[24px] text-[#7c879d] flex-1 [&_p]:text-[12px] [&_p]:leading-[1.8] [&_p]:max-w-[300px] [&_h3]:text-[#c1c9dc] [&>small]:text-[9px] [&>small]:text-[#586780]"
+      class="panel-empty chat-empty flex flex-col items-center justify-center text-center gap-[18px] py-[35px] px-[24px] text-[var(--muted)] flex-1 [&_p]:text-[12px] [&_p]:leading-[1.8] [&_p]:max-w-[300px] [&_h3]:text-[var(--fg-secondary)] [&>small]:text-[9px] [&>small]:text-[var(--muted)]"
     >
       <div
-        class="empty-orbit flex items-center justify-center w-[64px] h-[64px] rounded-[17px] border-[1px] border-solid border-[#303747] [background:linear-gradient(135deg,_#242a38,_#181c26)] text-[#a4b5e1] shadow-[0_5px_20px_#0002]"
+        class="empty-orbit flex items-center justify-center w-[64px] h-[64px] rounded-[17px] border-[1px] border-solid border-[var(--line)] [background:linear-gradient(135deg,_#242a38,_#181c26)] text-[var(--accent)] shadow-[0_5px_20px_#0002] [[data-theme=daylight]_&]:bg-[var(--raised)]"
       >
         <Bot :size="26" />
       </div>
@@ -1166,7 +1166,7 @@ defineExpose({
         changes in one place.
       </p>
       <AppButton
-        class="secondary bg-[#22252e] [border-color:#373c49] text-[#c9d0e3]"
+        class="secondary bg-[var(--raised)] [border-color:var(--line)] text-[var(--fg-secondary)]"
         @click="showPairing = true"
       >
         <Link2 :size="14" />Connect T3 Code</AppButton
@@ -1176,12 +1176,12 @@ defineExpose({
     </div>
     <div
       v-if="error"
-      class="inline-error text-[#e4a6b0] bg-[#472b343f] py-[10px] px-[12px] text-[11px] leading-[1.7] whitespace-pre-wrap [overflow-wrap:anywhere]"
+      class="inline-error text-[var(--danger)] bg-[var(--danger-bg)] py-[10px] px-[12px] text-[11px] leading-[1.7] whitespace-pre-wrap [overflow-wrap:anywhere]"
     >
       {{ error
       }}<AppButton
         v-if="!connected && desktop()"
-        class="small text-[11px] py-[4px] px-[7px] [border-color:#30343f] rounded-[4px]"
+        class="small text-[11px] py-[4px] px-[7px] [border-color:var(--line)] rounded-[4px]"
         @click="client.connect()"
       >
         Retry connection
@@ -1189,11 +1189,11 @@ defineExpose({
     </div>
     <ChatQueue v-if="projection && !example" :projection="projection" :disabled="!connected || sending || !!settlingId" :dispatch="command => client.dispatch(command)" @error="error = $event" />
     <div
-      class="composer p-[11px] m-[10px] border-[1px] border-solid border-[#353d4d] rounded-[9px] bg-[#1b1f29] shadow-[0_4px_15px_#0001] [&_textarea]:w-full [&_textarea]:border-0 [&_textarea]:bg-[transparent] [&_textarea]:shadow-[none] [&_textarea]:pt-[3px] [&_textarea]:px-[3px] [&_textarea]:pb-[9px] [&_textarea]:text-[13px] [&_textarea]:min-h-[75px] [&_textarea]:max-h-[220px] [&_textarea]:resize-y relative [&_textarea]:leading-[1.6]"
+      class="composer p-[11px] m-[10px] border-[1px] border-solid border-[var(--line)] rounded-[9px] bg-[var(--panel)] shadow-[0_4px_15px_#0001] [&_textarea]:w-full [&_textarea]:border-0 [&_textarea]:bg-[transparent] [&_textarea]:shadow-[none] [&_textarea]:pt-[3px] [&_textarea]:px-[3px] [&_textarea]:pb-[9px] [&_textarea]:text-[13px] [&_textarea]:min-h-[75px] [&_textarea]:max-h-[220px] [&_textarea]:resize-y relative [&_textarea]:leading-[1.6]"
     >
       <div
         v-if="images.length"
-        class="pasted-images flex flex-wrap gap-[8px] mb-[8px] [&_figure]:relative [&_figure]:m-0 [&_img]:block [&_img]:w-[72px] [&_img]:h-[64px] [&_img]:[object-fit:cover] [&_img]:border-[1px] [&_img]:border-solid [&_img]:border-[var(--line)] [&_img]:rounded-[6px] [&_button]:absolute [&_button]:top-[2px] [&_button]:right-[2px] [&_button]:p-[2px] [&_button]:bg-[#101114dd]"
+        class="pasted-images flex flex-wrap gap-[8px] mb-[8px] [&_figure]:relative [&_figure]:m-0 [&_img]:block [&_img]:w-[72px] [&_img]:h-[64px] [&_img]:[object-fit:cover] [&_img]:border-[1px] [&_img]:border-solid [&_img]:border-[var(--line)] [&_img]:rounded-[6px] [&_button]:absolute [&_button]:top-[2px] [&_button]:right-[2px] [&_button]:p-[2px] [&_button]:bg-[var(--bg)]"
         aria-label="Attached images"
       >
         <figure v-for="image in images" :key="image.id">
@@ -1221,7 +1221,7 @@ defineExpose({
             questions.length ||
             thread.status === 'error')
         "
-        class="agent-status flex items-center gap-[7px] min-h-[26px] mb-[5px] text-[#9baed4] text-[11px]"
+        class="agent-status flex items-center gap-[7px] min-h-[26px] mb-[5px] text-[var(--fg-secondary)] text-[11px]"
         role="status"
         aria-live="polite"
       >
@@ -1237,7 +1237,7 @@ defineExpose({
       </div>
       <div
         v-if="context"
-        class="context-chip flex items-center text-[10px] py-[4px] px-[7px] bg-[#2a3348] rounded-[4px] text-[#acbbdc] mb-[8px] [&>span]:flex-1 [&_button]:w-[20px] [&_button]:h-[20px]"
+        class="context-chip flex items-center text-[10px] py-[4px] px-[7px] bg-[var(--selection)] rounded-[4px] text-[var(--fg-secondary)] mb-[8px] [&>span]:flex-1 [&_button]:w-[20px] [&_button]:h-[20px]"
       >
         <span>Selected diff attached</span
         ><AppButton
@@ -1253,12 +1253,12 @@ defineExpose({
         v-if="skillMenuOpen"
         :id="skillMenuId"
         ref="skillMenu"
-        class="skill-menu absolute z-[20] [bottom:calc(100%_+_6px)] left-0 right-0 max-h-[260px] overflow-y-auto p-[5px] bg-[#191b21] border-[1px] border-solid border-[#30333e] rounded-[8px] shadow-[0_8px_24px_#0005] [scrollbar-width:thin] [&>button]:flex [&>button]:flex-col [&>button]:items-stretch [&>button]:justify-start [&>button]:gap-[3px] [&>button]:w-full [&>button]:text-left [&>button]:py-[8px] [&>button]:px-[9px] [&>button]:rounded-[5px] [&>button]:whitespace-normal [&>button[aria-selected='true']]:bg-[#ffffff08] [&>button[aria-selected='true']]:shadow-[inset_2px_0_#a7b6ff] [&>button:hover]:bg-[#ffffff0c] [&_strong]:flex-1 [&_strong]:min-w-0 [&_strong]:text-[12px] [&_strong]:font-medium [&_strong]:font-[inherit] [&_strong]:text-[#d9dce5] [&_strong]:overflow-hidden [&_strong]:text-ellipsis [&_strong]:whitespace-nowrap [&_small]:text-[11px] [&_small]:text-[#8f96a6] [&_small]:leading-[1.4] [&>p]:text-[11px] [&>p]:text-[#8f96a6] [&>p]:leading-[1.4] [&_small]:block [&_small]:overflow-hidden [&_small]:text-ellipsis [&_small]:whitespace-nowrap [&>p]:p-[8px] [&>p]:m-0"
+        class="skill-menu absolute z-[20] [bottom:calc(100%_+_6px)] left-0 right-0 max-h-[260px] overflow-y-auto p-[5px] bg-[var(--bg)] border-[1px] border-solid border-[var(--line)] rounded-[8px] shadow-[0_8px_24px_#0005] [scrollbar-width:thin] [&>button]:flex [&>button]:flex-col [&>button]:items-stretch [&>button]:justify-start [&>button]:gap-[3px] [&>button]:w-full [&>button]:text-left [&>button]:py-[8px] [&>button]:px-[9px] [&>button]:rounded-[5px] [&>button]:whitespace-normal [&>button[aria-selected='true']]:bg-[var(--selection)] [&>button[aria-selected='true']]:shadow-[inset_2px_0_var(--accent)] [&>button:hover]:bg-[var(--selection)] [&_strong]:flex-1 [&_strong]:min-w-0 [&_strong]:text-[12px] [&_strong]:font-medium [&_strong]:font-[inherit] [&_strong]:text-[var(--fg)] [&_strong]:overflow-hidden [&_strong]:text-ellipsis [&_strong]:whitespace-nowrap [&_small]:text-[11px] [&_small]:text-[var(--muted)] [&_small]:leading-[1.4] [&>p]:text-[11px] [&>p]:text-[var(--muted)] [&>p]:leading-[1.4] [&_small]:block [&_small]:overflow-hidden [&_small]:text-ellipsis [&_small]:whitespace-nowrap [&>p]:p-[8px] [&>p]:m-0"
         role="listbox"
         aria-label="Skills"
       >
         <div
-          class="skill-menu-heading flex items-center justify-between pt-[2px] px-[7px] pb-[5px] mb-[3px] border-b-[1px] border-solid border-b-[#ffffff08] text-[#858b99] text-[10px] [&_button]:py-[3px] [&_button]:px-[5px] [&_button]:text-[10px] [&_button]:text-[#858b99]"
+          class="skill-menu-heading flex items-center justify-between pt-[2px] px-[7px] pb-[5px] mb-[3px] border-b-[1px] border-solid border-b-[var(--line)] text-[var(--muted)] text-[10px] [&_button]:py-[3px] [&_button]:px-[5px] [&_button]:text-[10px] [&_button]:text-[var(--muted)]"
         >
           <span>Skills</span
           ><AppButton
@@ -1299,7 +1299,7 @@ defineExpose({
                 skill.name.includes(':') &&
                 skill.name.split(':')[0] !== skill.name.split(':').at(-1)
               "
-              class="skill-source max-w-[45%] overflow-hidden text-ellipsis whitespace-nowrap text-[9px] text-[#747b8b]"
+              class="skill-source max-w-[45%] overflow-hidden text-ellipsis whitespace-nowrap text-[9px] text-[var(--muted)]"
               >{{ skill.name.split(":").slice(0, -1).join(":") }}</span
             ></span
           >
@@ -1337,21 +1337,21 @@ defineExpose({
         @paste="pasteImages"
       />
       <div
-        class="composer-footer flex items-center gap-[8px] [&>span]:flex-1 [&>span]:text-[9px] [&>span]:text-[#7d8ca9] [&>span]:overflow-hidden [&>span]:text-ellipsis [&>button]:inline-flex [&>button]:items-center [&>button]:justify-center [&>button]:flex-[0_0_auto] [&>button]:gap-[6px] [&>button]:h-[32px] [&>button]:py-0 [&>button]:px-[10px] [&>button]:rounded-[8px] [&>button]:text-[12px] [&>button]:leading-[1] [&>button>svg]:block [&>.stop:hover:not(:disabled)]:bg-[#38252d] [&>.stop:hover:not(:disabled)]:text-[#f0b1b6] [&>.stop:hover:not(:disabled)]:[border-color:#b47780]"
+        class="composer-footer flex items-center gap-[8px] [&>span]:flex-1 [&>span]:text-[9px] [&>span]:text-[var(--muted)] [&>span]:overflow-hidden [&>span]:text-ellipsis [&>button]:inline-flex [&>button]:items-center [&>button]:justify-center [&>button]:flex-[0_0_auto] [&>button]:gap-[6px] [&>button]:h-[32px] [&>button]:py-0 [&>button]:px-[10px] [&>button]:rounded-[8px] [&>button]:text-[12px] [&>button]:leading-[1] [&>button>svg]:block [&>.stop:hover:not(:disabled)]:bg-[var(--danger-bg)] [&>.stop:hover:not(:disabled)]:text-[var(--danger)] [&>.stop:hover:not(:disabled)]:[border-color:var(--line)]"
       >
         <span :title="thread?.modelSelection.model">{{
           thread?.modelSelection.model
         }}</span
         ><AppButton
           v-if="thread?.activeRunId"
-          class="stop border-[1px] border-solid border-[#765056] text-[#d89c9e]"
+          class="stop border-[1px] border-solid border-[var(--line)] text-[var(--danger)]"
           aria-label="Stop current task"
           title="Stop current task"
           @click="stop"
         >
           <Square :size="14" /><span>Stop</span></AppButton
         ><AppButton
-          class="send-button bg-[#8e9ec9] text-[#17213a] [&:hover:not(:disabled)]:bg-[#a7b6ed] [&:hover:not(:disabled)]:text-[#17213a]"
+          class="send-button bg-[var(--selection)] text-[var(--muted)] [&:hover:not(:disabled)]:bg-[var(--selection)] [&:hover:not(:disabled)]:text-[var(--muted)]"
           :aria-label="
             busy ? 'Queue instruction' : 'Send instruction'
           "
@@ -1384,7 +1384,7 @@ defineExpose({
         @close="showPairing = false"
       >
         <AppDialogPanel
-          class="modal w-[470px] max-w-full max-h-[90vh] overflow-auto p-[22px] [&_.worktree-toggle]:relative [&_.worktree-toggle]:flex [&_.worktree-toggle]:flex-row [&_.worktree-toggle]:items-center [&_.worktree-toggle]:gap-[12px] [&_.worktree-toggle]:p-[14px] [&_.worktree-toggle]:m-0 [&_.worktree-toggle]:border-[1px] [&_.worktree-toggle]:border-solid [&_.worktree-toggle]:border-[#35405a] [&_.worktree-toggle]:rounded-[8px] [&_.worktree-toggle]:bg-[#171c26] [&_.worktree-toggle]:cursor-pointer [&_.worktree-toggle_input]:absolute [&_.worktree-toggle_input]:w-[1px] [&_.worktree-toggle_input]:h-[1px] [&_.worktree-toggle_input]:opacity-0"
+          class="modal w-[470px] max-w-full max-h-[90vh] overflow-auto p-[22px] [&_.worktree-toggle]:relative [&_.worktree-toggle]:flex [&_.worktree-toggle]:flex-row [&_.worktree-toggle]:items-center [&_.worktree-toggle]:gap-[12px] [&_.worktree-toggle]:p-[14px] [&_.worktree-toggle]:m-0 [&_.worktree-toggle]:border-[1px] [&_.worktree-toggle]:border-solid [&_.worktree-toggle]:border-[var(--line)] [&_.worktree-toggle]:rounded-[8px] [&_.worktree-toggle]:bg-[var(--panel)] [&_.worktree-toggle]:cursor-pointer [&_.worktree-toggle_input]:absolute [&_.worktree-toggle_input]:w-[1px] [&_.worktree-toggle_input]:h-[1px] [&_.worktree-toggle_input]:opacity-0"
           aria-labelledby="pair-title"
         >
           <AppDialogHeader class="modal-heading">
@@ -1421,7 +1421,7 @@ defineExpose({
           /></label>
           <div
             v-if="error"
-            class="inline-error text-[#e4a6b0] bg-[#472b343f] py-[10px] px-[12px] text-[11px] leading-[1.7] whitespace-pre-wrap [overflow-wrap:anywhere]"
+            class="inline-error text-[var(--danger)] bg-[var(--danger-bg)] py-[10px] px-[12px] text-[11px] leading-[1.7] whitespace-pre-wrap [overflow-wrap:anywhere]"
           >
             {{ error }}
           </div>
@@ -1429,7 +1429,7 @@ defineExpose({
             <AppButton @click="showPairing = false"> Cancel</AppButton
             ><AppButton
               variant="primary"
-              class="primary [border-color:#adbbff]"
+              class="primary [border-color:var(--line)]"
               :disabled="!pairing.trim()"
               @click="pair"
             >
@@ -1447,7 +1447,7 @@ defineExpose({
         <AppDialogPanel
           as="form"
           ref="newConversationDialog"
-          class="modal new-conversation-dialog w-[680px] max-w-full max-h-[90vh] overflow-hidden p-[22px] flex flex-col [&>.modal-heading]:shrink-0 [&>p]:shrink-0 [&>.modal-footer]:shrink-0 [&_textarea]:w-full [&_textarea]:text-[12px] [&_.worktree-toggle]:relative [&_.worktree-toggle]:flex [&_.worktree-toggle]:flex-row [&_.worktree-toggle]:items-center [&_.worktree-toggle]:gap-[12px] [&_.worktree-toggle]:p-[14px] [&_.worktree-toggle]:m-0 [&_.worktree-toggle]:border-[1px] [&_.worktree-toggle]:border-solid [&_.worktree-toggle]:border-[#35405a] [&_.worktree-toggle]:rounded-[8px] [&_.worktree-toggle]:bg-[#171c26] [&_.worktree-toggle]:cursor-pointer [&_.worktree-toggle_input]:absolute [&_.worktree-toggle_input]:w-[1px] [&_.worktree-toggle_input]:h-[1px] [&_.worktree-toggle_input]:opacity-0"
+          class="modal new-conversation-dialog w-[680px] max-w-full max-h-[90vh] overflow-hidden p-[22px] flex flex-col [&>.modal-heading]:shrink-0 [&>p]:shrink-0 [&>.modal-footer]:shrink-0 [&_textarea]:w-full [&_textarea]:text-[12px] [&_.worktree-toggle]:relative [&_.worktree-toggle]:flex [&_.worktree-toggle]:flex-row [&_.worktree-toggle]:items-center [&_.worktree-toggle]:gap-[12px] [&_.worktree-toggle]:p-[14px] [&_.worktree-toggle]:m-0 [&_.worktree-toggle]:border-[1px] [&_.worktree-toggle]:border-solid [&_.worktree-toggle]:border-[var(--line)] [&_.worktree-toggle]:rounded-[8px] [&_.worktree-toggle]:bg-[var(--panel)] [&_.worktree-toggle]:cursor-pointer [&_.worktree-toggle_input]:absolute [&_.worktree-toggle_input]:w-[1px] [&_.worktree-toggle_input]:h-[1px] [&_.worktree-toggle_input]:opacity-0"
           aria-labelledby="new-conversation-title"
           aria-describedby="new-conversation-description"
           @submit.prevent="create(newPreset)"
@@ -1478,7 +1478,7 @@ defineExpose({
             class="conversation-setup min-h-0 overflow-y-auto py-[3px] px-[4px] my-[-3px] mx-[-4px] [scrollbar-width:thin]"
           >
             <section
-              class="conversation-section mt-[20px] [&:first-child]:mt-0 [&_h3]:flex [&_h3]:[align-items:baseline] [&_h3]:gap-[10px] [&_h3]:mt-0 [&_h3]:mx-0 [&_h3]:mb-[10px] [&_h3]:text-[12px] [&_h3]:font-semibold [&_h3>span]:text-[#8998b4] [&_h3>span]:text-[11px] [&_h3>span]:font-normal [&>label:has(+_.conversation-hint)]:mb-0"
+              class="conversation-section mt-[20px] [&:first-child]:mt-0 [&_h3]:flex [&_h3]:[align-items:baseline] [&_h3]:gap-[10px] [&_h3]:mt-0 [&_h3]:mx-0 [&_h3]:mb-[10px] [&_h3]:text-[12px] [&_h3]:font-semibold [&_h3>span]:text-[var(--muted)] [&_h3>span]:text-[11px] [&_h3>span]:font-normal [&>label:has(+_.conversation-hint)]:mb-0"
               aria-labelledby="conversation-project-heading"
             >
               <h3
@@ -1490,7 +1490,7 @@ defineExpose({
               <AppButton
                 ref="projectPickerButton"
                 type="button"
-                class="conversation-preset project-choice project-current w-full items-start [border-color:#647db3] [&>svg:last-child]:[transition:transform_.15s] min-w-0 flex gap-[11px] p-[12px] text-left whitespace-normal border-[1px] border-solid border-[#35405a] bg-[#171c26] rounded-[8px] [&:hover:not(:disabled)]:[border-color:#64789f] [&:hover:not(:disabled)]:bg-[#222b3c] focus-visible:[outline:2px_solid_#a7b6ff] focus-visible:outline-offset-[3px] [&[aria-pressed='true']]:[border-color:#8ca5e7] [&[aria-pressed='true']]:bg-[#27334b] [&>svg]:shrink-0 [&>svg]:mt-[2px] [&>svg]:text-[#a8bbeb] [&_span]:grid [&_span]:gap-[5px] [&_span]:flex-1 [&_span]:min-w-0 [&_span]:[overflow-wrap:anywhere] [&_strong]:text-[13px] [&_strong]:font-semibold [&_small]:text-[#9eadc8] [&_small]:text-[10px] [&_small]:leading-[1.5] [&_small]:font-[Consolas,_monospace]"
+                class="conversation-preset project-choice project-current w-full items-start [border-color:var(--line)] [&>svg:last-child]:[transition:transform_.15s] min-w-0 flex gap-[11px] p-[12px] text-left whitespace-normal border-[1px] border-solid border-[var(--line)] bg-[var(--panel)] rounded-[8px] [&:hover:not(:disabled)]:[border-color:var(--line)] [&:hover:not(:disabled)]:bg-[var(--raised)] focus-visible:[outline:2px_solid_var(--accent)] focus-visible:outline-offset-[3px] [&[aria-pressed='true']]:[border-color:var(--line)] [&[aria-pressed='true']]:bg-[var(--selection)] [&>svg]:shrink-0 [&>svg]:mt-[2px] [&>svg]:text-[var(--accent)] [&_span]:grid [&_span]:gap-[5px] [&_span]:flex-1 [&_span]:min-w-0 [&_span]:[overflow-wrap:anywhere] [&_strong]:text-[13px] [&_strong]:font-semibold [&_small]:text-[var(--fg-secondary)] [&_small]:text-[10px] [&_small]:leading-[1.5] [&_small]:font-[Consolas,_monospace]"
                 :disabled="creating"
                 :aria-expanded="projectPickerOpen"
                 aria-controls="conversation-project-picker"
@@ -1517,7 +1517,7 @@ defineExpose({
               <div
                 v-if="projectPickerOpen"
                 id="conversation-project-picker"
-                class="project-picker mt-[8px] p-[8px] border-[1px] border-solid border-[#35405a] rounded-[8px] bg-[#141923] [&_input]:w-full [&_input]:mb-[8px] [&_.project-choice]:py-[9px] [&_.project-choice]:px-[10px]"
+                class="project-picker mt-[8px] p-[8px] border-[1px] border-solid border-[var(--line)] rounded-[8px] bg-[var(--bg)] [&_input]:w-full [&_input]:mb-[8px] [&_.project-choice]:py-[9px] [&_.project-choice]:px-[10px]"
               >
                 <AppInput
                   v-model="projectSearch"
@@ -1535,7 +1535,7 @@ defineExpose({
                     v-for="project in matchingProjects"
                     :key="project.id"
                     type="button"
-                    class="conversation-preset project-choice min-w-0 flex items-start gap-[11px] p-[12px] text-left whitespace-normal border-[1px] border-solid border-[#35405a] bg-[#171c26] rounded-[8px] [&:hover:not(:disabled)]:[border-color:#64789f] [&:hover:not(:disabled)]:bg-[#222b3c] focus-visible:[outline:2px_solid_#a7b6ff] focus-visible:outline-offset-[3px] [&[aria-pressed='true']]:[border-color:#8ca5e7] [&[aria-pressed='true']]:bg-[#27334b] [&>svg]:shrink-0 [&>svg]:mt-[2px] [&>svg]:text-[#a8bbeb] [&_span]:grid [&_span]:gap-[5px] [&_span]:flex-1 [&_span]:min-w-0 [&_span]:[overflow-wrap:anywhere] [&_strong]:text-[13px] [&_strong]:font-semibold [&_small]:text-[#9eadc8] [&_small]:text-[10px] [&_small]:leading-[1.5] [&_small]:font-[Consolas,_monospace]"
+                    class="conversation-preset project-choice min-w-0 flex items-start gap-[11px] p-[12px] text-left whitespace-normal border-[1px] border-solid border-[var(--line)] bg-[var(--panel)] rounded-[8px] [&:hover:not(:disabled)]:[border-color:var(--line)] [&:hover:not(:disabled)]:bg-[var(--raised)] focus-visible:[outline:2px_solid_var(--accent)] focus-visible:outline-offset-[3px] [&[aria-pressed='true']]:[border-color:var(--line)] [&[aria-pressed='true']]:bg-[var(--selection)] [&>svg]:shrink-0 [&>svg]:mt-[2px] [&>svg]:text-[var(--accent)] [&_span]:grid [&_span]:gap-[5px] [&_span]:flex-1 [&_span]:min-w-0 [&_span]:[overflow-wrap:anywhere] [&_strong]:text-[13px] [&_strong]:font-semibold [&_small]:text-[var(--fg-secondary)] [&_small]:text-[10px] [&_small]:leading-[1.5] [&_small]:font-[Consolas,_monospace]"
                     :aria-pressed="newProject === project.id"
                     :disabled="creating"
                     @click="changeNewProject(project.id)"
@@ -1571,7 +1571,7 @@ defineExpose({
               </AppHint>
             </section>
             <section
-              class="conversation-section mt-[20px] [&:first-child]:mt-0 [&_h3]:flex [&_h3]:[align-items:baseline] [&_h3]:gap-[10px] [&_h3]:mt-0 [&_h3]:mx-0 [&_h3]:mb-[10px] [&_h3]:text-[12px] [&_h3]:font-semibold [&_h3>span]:text-[#8998b4] [&_h3>span]:text-[11px] [&_h3>span]:font-normal [&>label:has(+_.conversation-hint)]:mb-0"
+              class="conversation-section mt-[20px] [&:first-child]:mt-0 [&_h3]:flex [&_h3]:[align-items:baseline] [&_h3]:gap-[10px] [&_h3]:mt-0 [&_h3]:mx-0 [&_h3]:mb-[10px] [&_h3]:text-[12px] [&_h3]:font-semibold [&_h3>span]:text-[var(--muted)] [&_h3>span]:text-[11px] [&_h3>span]:font-normal [&>label:has(+_.conversation-hint)]:mb-0"
               aria-labelledby="conversation-action-heading"
             >
               <h3
@@ -1589,7 +1589,7 @@ defineExpose({
                   v-for="(preset, index) in conversationPresets"
                   :key="preset.label"
                   type="button"
-                  class="conversation-preset min-w-0 flex items-start gap-[11px] p-[12px] text-left whitespace-normal border-[1px] border-solid border-[#35405a] bg-[#171c26] rounded-[8px] [&:hover:not(:disabled)]:[border-color:#64789f] [&:hover:not(:disabled)]:bg-[#222b3c] focus-visible:[outline:2px_solid_#a7b6ff] focus-visible:outline-offset-[3px] [&[aria-pressed='true']]:[border-color:#8ca5e7] [&[aria-pressed='true']]:bg-[#27334b] [&>svg]:shrink-0 [&>svg]:mt-[2px] [&>svg]:text-[#a8bbeb] [&_span]:grid [&_span]:gap-[5px] [&_span]:flex-1 [&_span]:min-w-0 [&_span]:[overflow-wrap:anywhere] [&_strong]:text-[13px] [&_strong]:font-semibold [&_small]:text-[#9eadc8] [&_small]:text-[11px] [&_small]:leading-[1.5]"
+                  class="conversation-preset min-w-0 flex items-start gap-[11px] p-[12px] text-left whitespace-normal border-[1px] border-solid border-[var(--line)] bg-[var(--panel)] rounded-[8px] [&:hover:not(:disabled)]:[border-color:var(--line)] [&:hover:not(:disabled)]:bg-[var(--raised)] focus-visible:[outline:2px_solid_var(--accent)] focus-visible:outline-offset-[3px] [&[aria-pressed='true']]:[border-color:var(--line)] [&[aria-pressed='true']]:bg-[var(--selection)] [&>svg]:shrink-0 [&>svg]:mt-[2px] [&>svg]:text-[var(--accent)] [&_span]:grid [&_span]:gap-[5px] [&_span]:flex-1 [&_span]:min-w-0 [&_span]:[overflow-wrap:anywhere] [&_strong]:text-[13px] [&_strong]:font-semibold [&_small]:text-[var(--fg-secondary)] [&_small]:text-[11px] [&_small]:leading-[1.5]"
                   :aria-label="preset.label"
                   :aria-pressed="newPreset.label === preset.label"
                   :disabled="creating"
@@ -1628,7 +1628,7 @@ defineExpose({
               </label>
             </template>
             <section
-              class="conversation-section mt-[20px] [&:first-child]:mt-0 [&_h3]:flex [&_h3]:[align-items:baseline] [&_h3]:gap-[10px] [&_h3]:mt-0 [&_h3]:mx-0 [&_h3]:mb-[10px] [&_h3]:text-[12px] [&_h3]:font-semibold [&_h3>span]:text-[#8998b4] [&_h3>span]:text-[11px] [&_h3>span]:font-normal [&>label:has(+_.conversation-hint)]:mb-0"
+              class="conversation-section mt-[20px] [&:first-child]:mt-0 [&_h3]:flex [&_h3]:[align-items:baseline] [&_h3]:gap-[10px] [&_h3]:mt-0 [&_h3]:mx-0 [&_h3]:mb-[10px] [&_h3]:text-[12px] [&_h3]:font-semibold [&_h3>span]:text-[var(--muted)] [&_h3>span]:text-[11px] [&_h3>span]:font-normal [&>label:has(+_.conversation-hint)]:mb-0"
               aria-labelledby="conversation-workspace-heading"
             >
               <h3
@@ -1638,12 +1638,12 @@ defineExpose({
                 Workspace
               </h3>
               <label
-                class="worktree-toggle [&:has(input:focus-visible)]:[outline:2px_solid_#a7b6ff] [&:has(input:focus-visible)]:outline-offset-[3px] [&.enabled]:[border-color:#647db3] [&.enabled]:bg-[#222d43] [&>svg]:shrink-0 [&>svg]:text-[#a8bbeb] [&_input:checked_+_.worktree-switch]:bg-[#a7b6ff] [&_input:checked_+_.worktree-switch::after]:[transform:translateX(14px)] [&_input:checked_+_.worktree-switch::after]:bg-[#1b2340] [&:has(input:disabled)]:opacity-[.5] [&:has(input:disabled)]:cursor-default"
+                class="worktree-toggle [&:has(input:focus-visible)]:[outline:2px_solid_var(--accent)] [&:has(input:focus-visible)]:outline-offset-[3px] [&.enabled]:[border-color:var(--line)] [&.enabled]:bg-[var(--raised)] [&>svg]:shrink-0 [&>svg]:text-[var(--accent)] [&_input:checked_+_.worktree-switch]:bg-[var(--accent)] [&_input:checked_+_.worktree-switch::after]:[transform:translateX(14px)] [&_input:checked_+_.worktree-switch::after]:bg-[var(--panel)] [&:has(input:disabled)]:opacity-[.5] [&:has(input:disabled)]:cursor-default"
                 :class="{ enabled: useNewWorktree }"
               >
                 <GitBranch :size="19" />
                 <span
-                  class="worktree-toggle-copy grid gap-[5px] flex-1 min-w-0 [&_strong]:text-[#d9dce5] [&_strong]:text-[13px] [&_strong]:font-semibold [&_small]:text-[11px] [&_small]:leading-[1.5]"
+                  class="worktree-toggle-copy grid gap-[5px] flex-1 min-w-0 [&_strong]:text-[var(--fg)] [&_strong]:text-[13px] [&_strong]:font-semibold [&_small]:text-[11px] [&_small]:leading-[1.5]"
                   ><strong>Use new worktree</strong
                   ><small
                     class="[:where(&)]:text-[11px]"
@@ -1664,7 +1664,7 @@ defineExpose({
                   :disabled="creating"
                 />
                 <span
-                  class="worktree-switch w-[34px] h-[20px] p-[3px] shrink-0 rounded-[12px] bg-[#4a5367] [&::after]:[content:''] [&::after]:block [&::after]:w-[14px] [&::after]:h-[14px] [&::after]:rounded-full [&::after]:bg-[#fff]"
+                  class="worktree-switch w-[34px] h-[20px] p-[3px] shrink-0 rounded-[12px] bg-[var(--selection)] [&::after]:[content:''] [&::after]:block [&::after]:w-[14px] [&::after]:h-[14px] [&::after]:rounded-full [&::after]:bg-[#fff]"
                   aria-hidden="true"
                 />
               </label>
@@ -1685,7 +1685,7 @@ defineExpose({
               </AppHint>
             </section>
             <section
-              class="conversation-section model-settings mt-[20px] [&:first-child]:mt-0 pt-[18px] border-t-[1px] border-solid border-t-[#30394d] [&_h3]:flex [&_h3]:[align-items:baseline] [&_h3]:gap-[10px] [&_h3]:mt-0 [&_h3]:mx-0 [&_h3]:mb-[10px] [&_h3]:text-[12px] [&_h3]:font-semibold [&_h3>span]:text-[#8998b4] [&_h3>span]:text-[11px] [&_h3>span]:font-normal [&>label:has(+_.conversation-hint)]:mb-0"
+              class="conversation-section model-settings mt-[20px] [&:first-child]:mt-0 pt-[18px] border-t-[1px] border-solid border-t-[var(--line)] [&_h3]:flex [&_h3]:[align-items:baseline] [&_h3]:gap-[10px] [&_h3]:mt-0 [&_h3]:mx-0 [&_h3]:mb-[10px] [&_h3]:text-[12px] [&_h3]:font-semibold [&_h3>span]:text-[var(--muted)] [&_h3>span]:text-[11px] [&_h3>span]:font-normal [&>label:has(+_.conversation-hint)]:mb-0"
               aria-labelledby="conversation-model-heading"
             >
               <h3
@@ -1721,7 +1721,7 @@ defineExpose({
                 {{ modelCatalogError }}
                 <AppButton
                   type="button"
-                  class="text-button py-[3px] px-[5px] text-[11px] text-[#989fad]"
+                  class="text-button py-[3px] px-[5px] text-[11px] text-[var(--muted)]"
                   :disabled="creating || modelsLoading"
                   @click="loadModels"
                 >
@@ -1755,11 +1755,11 @@ defineExpose({
                   "
                 >
                   <span
-                    class="model-setting-label block mb-[8px] text-[11px] text-[#9eadc8]"
+                    class="model-setting-label block mb-[8px] text-[11px] text-[var(--fg-secondary)]"
                     >{{ setting.label }}</span
                   >
                   <div
-                    class="model-reasoning flex flex-wrap gap-[5px] [&_button]:py-[7px] [&_button]:px-[10px] [&_button]:border-[1px] [&_button]:border-solid [&_button]:border-[#35405a] [&_button]:bg-[#171c26] [&_button]:text-[11px] [&_button[aria-pressed='true']]:text-[#e3e9ff] [&_button[aria-pressed='true']]:[border-color:#8ca5e7] [&_button[aria-pressed='true']]:bg-[#27334b]"
+                    class="model-reasoning flex flex-wrap gap-[5px] [&_button]:py-[7px] [&_button]:px-[10px] [&_button]:border-[1px] [&_button]:border-solid [&_button]:border-[var(--line)] [&_button]:bg-[var(--panel)] [&_button]:text-[11px] [&_button[aria-pressed='true']]:text-[var(--fg)] [&_button[aria-pressed='true']]:[border-color:var(--line)] [&_button[aria-pressed='true']]:bg-[var(--selection)]"
                     role="group"
                     :aria-label="setting.label"
                   >
@@ -1823,7 +1823,7 @@ defineExpose({
             <p v-if="!connected">Reconnect T3 Code to create a conversation.</p>
             <div
               v-if="newChatError"
-              class="inline-error text-[#e4a6b0] bg-[#472b343f] py-[10px] px-[12px] text-[11px] leading-[1.7] whitespace-pre-wrap [overflow-wrap:anywhere]"
+              class="inline-error text-[var(--danger)] bg-[var(--danger-bg)] py-[10px] px-[12px] text-[11px] leading-[1.7] whitespace-pre-wrap [overflow-wrap:anywhere]"
               role="alert"
             >
               {{ newChatError }}
@@ -1840,7 +1840,7 @@ defineExpose({
             <AppButton
               variant="primary"
               type="submit"
-              class="primary [border-color:#adbbff]"
+              class="primary [border-color:var(--line)]"
               :disabled="!canCreate"
             >
               <LoaderCircle

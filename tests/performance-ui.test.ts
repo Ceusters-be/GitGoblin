@@ -35,6 +35,22 @@ function mount(name: string, props: Record<string, unknown>) {
   return { host, stop: () => { app.unmount(); host.remove(); } };
 }
 
+it('shows an empty diff state without hiding loading or file metadata', async () => {
+  for (const props of [
+    { text: '', loading: false },
+    { text: '', loading: true },
+    { text: 'diff --git a/image.png b/image.png\nBinary files a/image.png and b/image.png differ', loading: false },
+  ]) {
+    const { host, stop } = mount('DiffViewer', { ...props, mode: 'working' });
+    try {
+      await Vue.nextTick();
+      expect(Boolean(host.querySelector('.diff-empty'))).toBe(!props.text && !props.loading);
+      if (props.loading) expect(host.textContent).toContain('Loading changes');
+      if (props.text) expect(host.textContent).toContain('Binary files');
+    } finally { stop(); }
+  }
+});
+
 it('windows 5000 files and keeps the last file reachable by keyboard', async () => {
   const { host, stop } = mount('FileList', { files: Array.from({ length: 5000 }, (_, i) => ({ path: `file-${i}`, index: ' ', worktree: 'M', conflict: false })), tree: false, selected: '', mode: 'working' });
   try {

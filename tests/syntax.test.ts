@@ -76,3 +76,11 @@ it('preserves Vue section languages and source text', () => {
   expect(lines[4]!.some(token => token.classes.includes('hljs-tag'))).toBe(true);
   expect(lines[7]!.some(token => token.classes.includes('hljs-attribute'))).toBe(true);
 });
+
+it('includes light syntax colors without changing the source text', () => {
+  const source = 'public string Name = "hello";';
+  const tokens = highlightCode(source, 'Theme.cs').flat();
+  expect(tokens.map(token => token.text).join('')).toBe(source);
+  expect(tokens.every(token => token.lightColor)).toBe(true);
+  expect(tokens.some(token => token.color !== token.lightColor)).toBe(true);
+});

@@ -71,7 +71,7 @@ defineExpose({ reveal });
 </script>
 <template>
   <AppCodeSurface
-    class="syntax-code [&_.badge]:text-[9px] [&_.badge]:bg-[#242831] [&_.badge]:text-[#a1a8ba] [&_.badge]:py-[3px] [&_.badge]:px-[5px] [&_.badge]:rounded-[4px] [&_.graph-line.last]:bottom-[50%] relative bg-[#111824] border-[1px] border-solid border-[#303b50] rounded-[6px] overflow-hidden h-[210px] [&.editable]:h-[280px]"
+    class="syntax-code [&_.badge]:text-[9px] [&_.badge]:bg-[var(--raised)] [&_.badge]:text-[var(--fg-secondary)] [&_.badge]:py-[3px] [&_.badge]:px-[5px] [&_.badge]:rounded-[4px] [&_.graph-line.last]:bottom-[50%] relative bg-[var(--bg)] border-[1px] border-solid border-[var(--hover)] rounded-[6px] overflow-hidden h-[210px] [&.editable]:h-[280px]"
     :class="[{ editable, selectable }]"
   >
     <div
@@ -84,7 +84,7 @@ defineExpose({ reveal });
       <div
         v-for="(line, index) in lines"
         :key="index"
-        class="code-row [.segmented_button&.active]:bg-[#292d38] [.segmented_button&.active]:text-[#d1d8ed] [.segmented_button&.active]:shadow-[0_1px_3px_#0004] flex w-max min-w-full h-[20px] [font:12px/20px_Consolas,_monospace] whitespace-pre [&.active-conflict]:bg-[#cda65c12] [&.active-conflict]:shadow-[inset_3px_0_#cda65c] [&.chosen]:bg-[#294331] [tab-size:4]"
+        class="code-row [.segmented_button&.active]:bg-[var(--hover)] [.segmented_button&.active]:text-[var(--fg)] [.segmented_button&.active]:shadow-[0_1px_3px_#0004] flex w-max min-w-full h-[20px] [font:12px/20px_Consolas,_monospace] whitespace-pre [&.active-conflict]:bg-[var(--warning-bg)] [&.active-conflict]:shadow-[inset_3px_0_#cda65c] [&.chosen]:bg-[var(--success-bg)] [tab-size:4]"
         :class="{
           chosen: selected?.includes(index),
           'active-conflict':
@@ -101,7 +101,7 @@ defineExpose({ reveal });
                 index <= selectableRange.end)) &&
             (index < lines.length - 1 || line)
           "
-          class="choose-line w-[26px] shrink-0 h-[20px] min-h-0 p-0 border-0 rounded-none bg-[transparent] text-[#8ea7ff] hover:bg-[#354363]"
+          class="choose-line w-[26px] shrink-0 h-[20px] min-h-0 p-0 border-0 rounded-none bg-[transparent] text-[var(--accent)] hover:bg-[var(--selection)]"
           :aria-label="`Select ${label} line ${index + 1}`"
           :aria-pressed="selected?.includes(index) || false"
           @click="emit('toggle', index)"
@@ -109,9 +109,9 @@ defineExpose({ reveal });
           {{ selected?.includes(index) ? "✓" : "+" }}</AppButton
         ><span
           v-else-if="selectable"
-          class="choose-line w-[26px] shrink-0 h-[20px] min-h-0 p-0 border-0 rounded-none bg-[transparent] text-[#8ea7ff] hover:bg-[#354363]"
+          class="choose-line w-[26px] shrink-0 h-[20px] min-h-0 p-0 border-0 rounded-none bg-[transparent] text-[var(--accent)] hover:bg-[var(--selection)]"
         /><span
-          class="code-number w-[46px] pr-[12px] text-right shrink-0 text-[#69788f] select-none"
+          class="code-number w-[46px] pr-[12px] text-right shrink-0 text-[var(--muted)] select-none"
           >{{ index + 1 }}</span
         ><code
           class="[font:inherit] pr-[12px] [:where(&)]:font-['Cascadia_Code',_'JetBrains_Mono',_Consolas,_monospace]"
@@ -120,7 +120,7 @@ defineExpose({ reveal });
               v-for="(token, i) in tokens[index]"
               :key="i"
               :class="token.classes"
-              :style="token.color ? { '--syntax-color': token.color } : undefined"
+              :style="token.color ? { '--syntax-color': token.color, '--syntax-light-color': token.lightColor } : undefined"
               >{{ token.text }}</span
             ></template
           ><template v-else>{{ line }}</template
@@ -129,7 +129,7 @@ defineExpose({ reveal });
       </div>
     </div>
     <AppTextarea
-      class="absolute inset-0 w-full h-full m-0 pt-[12px] pr-[12px] pb-[12px] pl-[46px] bg-[transparent] text-[transparent] [caret-color:#e0e7ff] [-webkit-text-fill-color:transparent] border-0 rounded-none resize-none [font:12px/20px_Consolas,_monospace] whitespace-pre [tab-size:4] [&::selection]:bg-[#647bc855]"
+      class="absolute inset-0 w-full h-full m-0 pt-[12px] pr-[12px] pb-[12px] pl-[46px] bg-[transparent] text-[transparent] [caret-color:#e0e7ff] [-webkit-text-fill-color:transparent] border-0 rounded-none resize-none [font:12px/20px_Consolas,_monospace] whitespace-pre [tab-size:4] [&::selection]:bg-[var(--selection)]"
       v-if="editable"
       ref="input"
       :aria-label="label"
