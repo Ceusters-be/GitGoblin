@@ -1,61 +1,116 @@
-name: Release Windows
-
+name: Release GitGoblin
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version (for example 0.2.0)'
-        required: true
-        default: '0.1.0'
-        type: string
-      publish:
-        description: 'Publish immediately (otherwise create a draft release)'
-        default: false
-        type: boolean
-
+  push:
+    tags: ['v*']
 permissions:
   contents: write
-
 concurrency:
-  group: release-windows
+  group: gitgoblin-release
   cancel-in-progress: false
-
 jobs:
-  release:
-    runs-on: windows-2022
-    timeout-minutes: 45
+  prepare:
+    runs-on: ubuntu-22.04
+    outputs:
+      release_id: ${{ steps.release.outputs.id }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
+      - name: Validate version and signing configuration
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          test -n "$TAURI_SIGNING_PRIVATE_KEY" || { echo 'Missing TAURI_SIGNING_PRIVATE_KEY secret'; exit 1; }
+          node scripts/check-release-version.mjs "$GITHUB_REF_NAME"
+          node --test scripts/check-update-manifest.test.mjs
+      - name: Prepare draft release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --json isDraft >/dev/null 2>&1; then
+            test "$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft)" = true || { echo 'Refusing to modify a published release'; exit 1; }
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --draft --title "GitGoblin $GITHUB_REF_NAME" --generate-notes
+          fi
+          echo "id=$(gh release view "$GITHUB_REF_NAME" --json databaseId --jq .databaseId)" >> "$GITHUB_OUTPUT"
+  build:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      # Each action merges latest.json. Serialize uploads to prevent lost platforms.
+      max-parallel: 1
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: nsis,msi
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            bundles: app,dmg
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            bundles: app,dmg
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bundles: appimage,deb,rpm
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+        with:
+          targets: ${{ matrix.target }}
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
-      - name: Set release version
-        id: version
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_VERSION: ${{ inputs.version }}
-        run: node scripts/release-version.mjs
+          shared-key: desktop-${{ matrix.os }}-${{ matrix.target }}
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev libdbus-1-dev patchelf
       - run: npm ci
       - run: npm run typecheck
-      - run: npm run test
-      - run: npm run native:test
-      - name: Build installer and create release
-        uses: tauri-apps/tauri-action@v1
+      - run: npm test
+      - run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+      - name: Configure optional macOS signing
+        if: runner.os == 'macOS'
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -n "$APPLE_SIGNING_IDENTITY" ]; then
+            for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+              printf '%s=%s\n' "$name" "${!name}" >> "$GITHUB_ENV"
+            done
+          fi
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: v${{ steps.version.outputs.version }}
-          releaseName: GitGoblin v${{ steps.version.outputs.version }}
-          releaseCommitish: ${{ github.sha }}
-          releaseDraft: ${{ !inputs.publish }}
-          generateReleaseNotes: true
-          uploadUpdaterJson: false
-          uploadWorkflowArtifacts: true
-          args: --bundles nsis
+          releaseId: ${{ needs.prepare.outputs.release_id }}
+          tagName: ${{ github.ref_name }}
+          releaseDraft: true
+          updaterJsonPreferNsis: true
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+  publish:
+    needs: [prepare, build]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify updater manifest and publish complete release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "$GITHUB_REF_NAME" --pattern latest.json --dir release-check
+          gh api "repos/$GITHUB_REPOSITORY/releases/${{ needs.prepare.outputs.release_id }}" > release-check/release.json
+          node scripts/check-update-manifest.mjs release-check/latest.json "$GITHUB_REF_NAME" release-check/release.json
+          gh release edit "$GITHUB_REF_NAME" --draft=false --latest

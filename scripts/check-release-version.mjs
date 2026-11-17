@@ -1,0 +1,12 @@
+import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
+const json = path => JSON.parse(readFileSync(path, 'utf8'));
+const version = json('src-tauri/tauri.conf.json').version;
+assert.match(version, /^\d+\.\d+\.\d+$/, 'Only stable versions are published by this workflow');
+assert.equal(process.argv[2], `v${version}`, 'Tag must match the app version');
+assert.equal(json('package.json').version, version);
+assert.equal(json('package-lock.json').version, version);
+assert.equal(json('package-lock.json').packages[''].version, version);
+assert.equal(readFileSync('src-tauri/Cargo.toml', 'utf8').match(/^version = "([^"]+)"/m)?.[1], version);
+assert.equal(readFileSync('src-tauri/Cargo.lock', 'utf8').match(/name = "gitgoblin"\r?\nversion = "([^"]+)"/)?.[1], version);
+console.log(`Release version ${version} validated`);

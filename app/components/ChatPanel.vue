@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   computed,
+  reactive,
   ref,
   shallowRef,
   onMounted,
@@ -264,7 +265,8 @@ async function switchWorktree(path: string) {
     switchingWorktree.value = false;
   }
 }
-const drafts = new Map<string, string>();
+const chatQueue = ref<{ updateBlocked: boolean }>();
+const drafts = reactive(new Map<string, string>());
 type DraftImage = {
   id: string;
   file: File;
@@ -903,6 +905,7 @@ onUnmounted(() => {
   client.disconnect();
 });
 defineExpose({
+  updateBlocked: computed(() => !!chatQueue.value?.updateBlocked || requests.value.length > 0 || questions.value.length > 0 || sending.value || creating.value || switchingWorktree.value || !!settlingId.value || showNew.value || showPairing.value || !!prompt.value || [...drafts].some(([id, text]) => id !== selectedId.value && !!text) || Object.values(imageDrafts.value).some(images => images.length > 0)),
   settle,
   newConversation: newChat,
   focusComposer: () => composer.value?.focus(),
@@ -1187,7 +1190,7 @@ defineExpose({
         Retry connection
       </AppButton>
     </div>
-    <ChatQueue v-if="projection && !example" :projection="projection" :disabled="!connected || sending || !!settlingId" :dispatch="command => client.dispatch(command)" @error="error = $event" />
+    <ChatQueue ref="chatQueue" v-if="projection && !example" :projection="projection" :disabled="!connected || sending || !!settlingId" :dispatch="command => client.dispatch(command)" @error="error = $event" />
     <div
       class="composer p-[11px] m-[10px] border-[1px] border-solid border-[var(--line)] rounded-[9px] bg-[var(--panel)] shadow-[0_4px_15px_#0001] [&_textarea]:w-full [&_textarea]:border-0 [&_textarea]:bg-[transparent] [&_textarea]:shadow-[none] [&_textarea]:pt-[3px] [&_textarea]:px-[3px] [&_textarea]:pb-[9px] [&_textarea]:text-[13px] [&_textarea]:min-h-[75px] [&_textarea]:max-h-[220px] [&_textarea]:resize-y relative [&_textarea]:leading-[1.6]"
     >

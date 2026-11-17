@@ -1,5 +1,4 @@
-import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -30,14 +29,5 @@ export function setReleaseVersion(root, version) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const repository = process.env.GITHUB_REPOSITORY;
-  if (!repository) throw new Error('GITHUB_REPOSITORY is required to check existing versions.');
-  const tags = [ ['tags', '.[].name'], ['releases', '.[].tag_name'] ].flatMap(([endpoint, query]) =>
-    execFileSync('gh', ['api', `repos/${repository}/${endpoint}`, '--paginate', '--jq', query], { encoding: 'utf8' }).split(/\r?\n/).filter(Boolean));
-  const version = process.env.RELEASE_VERSION;
-  validateVersion(version);
-  if (tags.some(tag => tag.replace(/^v/, '') === version)) throw new Error(`Version ${version} already exists as a tag or release. Choose a new version.`);
-  setReleaseVersion(process.cwd(), version);
-  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
-  console.log(`Release version: ${version}`);
+  setReleaseVersion(process.cwd(), process.argv[2]);
 }

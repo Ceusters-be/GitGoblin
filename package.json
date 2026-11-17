@@ -11,12 +11,15 @@
     "native:test": "node scripts/native.mjs test",
     "native:smoke": "node scripts/smoke-native.mjs",
     "typecheck": "nuxt typecheck",
-    "test": "vitest run",
-    "postinstall": "nuxt prepare"
+    "test": "vitest run tests && node --test scripts/check-update-manifest.test.mjs",
+    "postinstall": "nuxt prepare",
+    "release:version": "node scripts/release-version.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.0.0",
+    "@tauri-apps/plugin-process": "^2.4.0",
+    "@tauri-apps/plugin-updater": "^2.14.1",
     "lowlight": "^3.3.0",
     "lucide-vue-next": "^0.468.0",
     "markdown-it": "^15.0.3",

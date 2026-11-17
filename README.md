@@ -31,15 +31,9 @@ Use Reka UI primitives for interactive controls and unprefixed Tailwind utilitie
 
 ## Releases
 
-Releases are manual-only. Pushes do not create releases or increment the version. The current app version is `0.1.0`.
+Run `npm run release:version -- X.Y.Z`, commit the version changes, and push a matching `vX.Y.Z` tag. The workflow tests and builds Windows, macOS (Apple Silicon and Intel), and Linux, then publishes only after validating every signed updater asset.
 
-Open [Actions → Release Windows](https://github.com/CedricBaetens/GitGoblin/actions/workflows/release.yml), choose **Run workflow**, select `master`, and enter the desired version (defaults to `0.1.0`). Leave **Publish immediately** unchecked to create a draft, or check it to publish after a successful build.
-
-The workflow runs the TypeScript and Rust checks, builds the Windows x64 NSIS installer, and attaches it to a GitHub release with generated release notes. Drafts can be reviewed and published from [Releases](https://github.com/CedricBaetens/GitGoblin/releases). Existing version tags are rejected to avoid replacing a released build.
-
-Versions are stamped into the app, package manifest, Rust manifest, and Cargo lockfile in the build checkout. The release tag points to the selected source commit; no version commit is pushed back to `master`. The workflow's built-in GitHub token publishes the release, so no personal token is needed. If repository policy blocks it, allow GitHub Actions to write repository contents.
-
-The installer is currently unsigned; Windows may display an unknown-publisher/SmartScreen prompt. Git must be installed separately. This workflow does not configure automatic application updates.
+The app downloads updates in the background and offers **Restart to update**. See [release and signing setup](docs/releases.md) for secrets, platform packages, and first-install requirements.
 
 ## Product contract
 
