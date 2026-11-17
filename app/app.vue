@@ -2252,6 +2252,9 @@ onUnmounted(() => {
                 </div>
                 <DiffViewer
                   :text="diff.text"
+                  :repo="example ? undefined : repo"
+                  :target="base"
+                  :version="diff.fingerprint"
                   :path="selected"
                   :loading="diffLoading"
                   :disabled="busy"
@@ -2427,6 +2430,8 @@ onUnmounted(() => {
               <DiffViewer
                 v-else
                 :text="historyDiff"
+                :repo="example ? undefined : repo"
+                :target="selectedCommit?.id"
                 mode="history"
                 @context="addContext"
                 @edit-context="editContext"

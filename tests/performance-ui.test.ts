@@ -12,6 +12,7 @@ import * as statuses from '../app/lib/diff-files';
 import * as geometry from '../app/lib/diff-geometry';
 import * as session from '../app/lib/diff-session';
 import { expect, it, vi } from 'vitest';
+const imageGit = vi.fn();
 
 function component(name: string) {
   const { descriptor } = parse(readFileSync(`app/components/${name}.vue`, 'utf8'));
@@ -19,7 +20,8 @@ function component(name: string) {
   const exports: any = {};
   const modules: Record<string, unknown> = { vue: Vue, 'lucide-vue-next': Icons,
     '~/lib/files': files, '~/lib/file-selection': selection, '~/lib/diff': diff,
-    '~/lib/diff-window': windowing, '~/lib/diff-files': statuses, '~/lib/diff-geometry': geometry, '~/lib/diff-session': session };
+    '~/lib/diff-window': windowing, '~/lib/diff-files': statuses, '~/lib/diff-geometry': geometry, '~/lib/diff-session': session,
+    '~/lib/native': { git: imageGit } };
   new Function('require', 'exports', transpile(compiled.content.replaceAll('import.meta.url', '"https://test.invalid/app.vue"'), { module: ModuleKind.CommonJS }))(
     (name: string) => modules[name], exports);
   return exports.default;
@@ -29,11 +31,31 @@ function mount(name: string, props: Record<string, unknown>) {
   host.className = 'file-list';
   document.body.append(host);
   const app = Vue.createApp(component(name), props);
-  for (const name of ['AppButton', 'AppCodeSurface', 'ContextMenu', 'DiffFileNavigator', 'DiffOverview'])
+  for (const name of ['AppButton', 'AppCodeSurface', 'ContextMenu', 'DiffFileNavigator', 'DiffOverview', 'ImageDiff'])
     app.component(name, { setup: (_, { slots, expose }) => { expose({ close: () => {} }); return () => Vue.h(name === 'AppButton' ? 'button' : 'div', slots.default?.()); } });
   app.mount(host);
   return { host, stop: () => { app.unmount(); host.remove(); } };
 }
+
+it('previews an added image, handles decode errors, and releases its URL', async () => {
+  imageGit.mockResolvedValue({ mime: 'image/png', original: null, modified: [1, 2, 3] });
+  const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test-image');
+  const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  const { host, stop } = mount('ImageDiff', { repo: 'repo', path: 'new.png', mode: 'staged', version: '1' });
+  try {
+    await Vue.nextTick(); await Vue.nextTick();
+    expect(imageGit).toHaveBeenCalledWith(expect.objectContaining({ action: 'image-diff', mode: 'staged', path: 'new.png' }));
+    expect(host.textContent).toContain('File does not exist in this version.');
+    expect(host.querySelector('img')?.alt).toBe('Modified: new.png');
+    host.querySelector('img')!.dispatchEvent(new Event('error'));
+    await Vue.nextTick();
+    expect(host.textContent).toContain('Unable to decode this image.');
+  } finally {
+    stop();
+    expect(revoke).toHaveBeenCalledWith('blob:test-image');
+    create.mockRestore(); revoke.mockRestore();
+  }
+});
 
 it('shows an empty diff state without hiding loading or file metadata', async () => {
   for (const props of [
@@ -81,7 +103,7 @@ it('cancels obsolete large-diff workers and renders only the latest result', asy
   const host = document.createElement('div');
   const app = Vue.createApp({ setup: () => () => Vue.h(componentValue, props) });
   const componentValue = component('DiffViewer');
-  for (const name of ['AppButton', 'AppCodeSurface', 'ContextMenu', 'DiffFileNavigator', 'DiffOverview'])
+  for (const name of ['AppButton', 'AppCodeSurface', 'ContextMenu', 'DiffFileNavigator', 'DiffOverview', 'ImageDiff'])
     app.component(name, { setup: (_, { slots, expose }) => { expose({ close: () => {} }); return () => Vue.h(name === 'AppButton' ? 'button' : 'div', slots.default?.()); } });
   app.mount(host);
   try {

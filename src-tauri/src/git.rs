@@ -8,6 +8,7 @@ use std::{
     process::{Command, Stdio},
 };
 mod bulk;
+mod images;
 
 #[derive(Debug, Deserialize)]
 pub struct BulkFile {
@@ -284,7 +285,7 @@ fn history(repo: &Path, path: &str, search: &str, offset: usize, limit: Option<u
 
 pub fn is_read_only(action: &str) -> bool {
     matches!(action, "discard-plan" | "snapshot" | "status" | "refresh" | "history" | "diff" | "branch-files" | "commit-diff"
-        | "commit-message" | "reflog" | "blame" | "conflict" | "rebase-plan")
+        | "commit-message" | "reflog" | "blame" | "conflict" | "rebase-plan" | "image-diff")
 }
 
 fn worktrees(repo: &Path) -> Result<Vec<Value>, String> {
@@ -309,6 +310,7 @@ pub fn execute_checked(req: Request, check: impl Fn() -> Result<(), String>) -> 
     check()?;
     let repo = root(&req.repo)?;
     let value = match req.action.as_str() {
+        "image-diff" => images::diff(&repo, &req)?,
         "discard-plan" | "discard-files" => {
             if req.files.is_empty() { return Err("Choose files to discard.".into()); }
             let statuses = status(&repo)?;
@@ -979,7 +981,7 @@ mod tests {
         assert_eq!(calls.get(), 3);
     }
 
-    fn fixture() -> tempfile::TempDir {
+    pub(super) fn fixture() -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         git(dir.path(), &["init"]).unwrap();
         git(dir.path(), &["config", "user.name", "GitGoblin Test"]).unwrap();
@@ -997,7 +999,7 @@ mod tests {
         .unwrap();
         dir
     }
-    fn request(dir: &Path, action: &str) -> Request {
+    pub(super) fn request(dir: &Path, action: &str) -> Request {
         Request {
             repo: dir.to_string_lossy().into(),
             action: action.into(),

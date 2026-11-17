@@ -22,6 +22,9 @@ const props = defineProps<{
   loading?: boolean;
   disabled?: boolean;
   wholeFile?: boolean;
+  repo?: string;
+  target?: string;
+  version?: string;
 }>();
 const syntax = shallowRef<DiffSyntax>({});
 const scroller = ref<HTMLElement>();
@@ -662,8 +665,14 @@ function context() {
                   aria-hidden="true"
                 />
               </section>
+              <ImageDiff
+                v-if="repo && /\.(png|jpe?g|gif|webp|bmp|ico|svg|avif)$/i.test(path || diffFileStatus(file.header)?.path || '')"
+                :repo="repo" :path="path || diffFileStatus(file.header)?.path || ''"
+                :old-path="diffFileStatus(file.header)?.oldPath"
+                :mode="mode" :target="target" :version="version || text"
+              />
               <pre
-                v-if="!file.hunks.length"
+                v-else-if="!file.hunks.length"
                 class="plain-output text-[11px] py-[15px] px-[18px] text-[var(--fg-secondary)] [.large-diff_&]:m-0 [.large-diff_&]:p-[12px] [.large-diff_&]:leading-[20px] [.large-diff_&]:whitespace-pre [:where(&)]:font-['Cascadia_Code',_'JetBrains_Mono',_Consolas,_monospace] [:where(&)]:whitespace-pre-wrap [:where(&)]:[word-break:break-word] [:where(&)]:leading-[1.7]"
                 :style="large ? { height: `${file.plainHeight}px` } : undefined"
                 >{{

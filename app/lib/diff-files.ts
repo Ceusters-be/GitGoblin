@@ -27,5 +27,6 @@ export function diffFileStatus(header: string): FileStatus | undefined {
   const path = renamed ? gitPath(renamed) : copied ? gitPath(copied) : raw ? gitPath(raw).replace(/^[ab]\//, '') : '';
   if (!path) return;
   const status = /^new file mode /m.test(header) ? 'A' : /^deleted file mode /m.test(header) ? 'D' : renamed ? 'R' : copied ? 'C' : 'M';
-  return { path, index: status, worktree: status, conflict: false };
+  const oldPath = /^(?:rename|copy) from (.+)$/m.exec(header)?.[1];
+  return { path, oldPath: oldPath ? gitPath(oldPath) : undefined, index: status, worktree: status, conflict: false };
 }
