@@ -49,6 +49,7 @@ export interface GitRequest {
   mode?: string;
   fingerprint?: string;
   wholeFile?: boolean;
+  pushTags?: boolean;
   offset?: number;
   limit?: number;
   files?: { path: string; fingerprint?: string }[];

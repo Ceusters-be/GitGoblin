@@ -132,9 +132,12 @@ function navigate(event: KeyboardEvent) {
         class="commit-subject overflow-hidden text-ellipsis whitespace-nowrap flex items-center gap-[6px]"
         :title="`${commit.refs ? commit.refs + '\n' : ''}${commit.subject}`"
         ><span
-          v-if="commit.refs"
-          class="ref-label inline-block ml-[9px] py-0 px-[4px] border-[1px] border-solid border-[#3d4a64] bg-[#493b24] text-[9px] text-[#e4c385] rounded-[3px] shrink-0 max-w-[42%] overflow-hidden text-ellipsis m-0 leading-[15px] [border-color:#7b633b]"
-          >{{ commit.refs }}</span
+          v-for="reference in commit.refs.split(', ').filter(Boolean)"
+          :key="reference"
+          :title="reference"
+          class="ref-label inline-block py-0 px-[6px] border-[1px] border-solid text-[9px] rounded-full shrink-0 max-w-[42%] overflow-hidden text-ellipsis m-0 leading-[15px]"
+          :class="reference.startsWith('tag: ') ? 'tag-label border-[#7b633b] bg-[#493b24] text-[#e4c385]' : 'border-[#3d4a64] bg-[#263247] text-[#b6c8eb]'"
+          >{{ reference }}</span
         >{{ commit.subject }}</span
       >
       <span

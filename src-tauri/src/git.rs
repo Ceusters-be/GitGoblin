@@ -34,6 +34,8 @@ pub struct Request {
     #[serde(default)]
     pub whole_file: bool,
     #[serde(default)]
+    pub push_tags: bool,
+    #[serde(default)]
     pub offset: usize,
     #[serde(default)]
     pub limit: Option<usize>,
@@ -547,7 +549,13 @@ pub fn execute_checked(req: Request, check: impl Fn() -> Result<(), String>) -> 
             } else {
                 vec!["push"]
             };
-            json!(git(&repo, &args)?)
+            let mut output = git(&repo, &args)?;
+            if req.push_tags {
+                // Keep branch force-push settings away from tags.
+                output.push_str(&git(&repo, &["push", "--no-follow-tags", "--tags"])
+                    .map_err(|error| format!("Branch pushed, but pushing tags failed: {error}"))?);
+            }
+            json!(output)
         }
         "switch" => {
             if let Some(remote) = req.target.strip_prefix("refs/remotes/") {
@@ -585,6 +593,16 @@ pub fn execute_checked(req: Request, check: impl Fn() -> Result<(), String>) -> 
             branch(&repo, &req.target)?;
             let flag = if req.mode == "force" { "-D" } else { "-d" };
             json!(git(&repo, &["branch", flag, &req.target])?)
+        }
+        "tag-push" => {
+            let remotes = git(&repo, &["remote"])?;
+            if !remotes.lines().any(|remote| remote == req.text) || req.text.starts_with('-') {
+                return Err("Choose a configured remote.".into());
+            }
+            let tag = format!("refs/tags/{}", req.target);
+            git(&repo, &["check-ref-format", &tag])?;
+            git(&repo, &["show-ref", "--verify", &tag])?;
+            json!(git(&repo, &["push", "--no-follow-tags", &req.text, &format!("{tag}:{tag}")])?)
         }
         "tag-create" => {
             branch(&repo, &req.text)?;
@@ -989,6 +1007,7 @@ mod tests {
             mode: String::new(),
             fingerprint: String::new(),
             whole_file: false,
+            push_tags: false,
             offset: 0,
             limit: None,
             files: Vec::new(),
@@ -1045,6 +1064,48 @@ mod tests {
             assert_eq!(fs::read_to_string(repo.join("untracked.txt")).unwrap(), "keep\n");
             assert!(git(repo, &["stash", "list"]).unwrap().is_empty());
         }
+    }
+
+    #[test]
+    fn tag_push_publishes_only_requested_tags_and_rejects_conflicts() {
+        let dir = fixture();
+        let repo = dir.path();
+        let remote = tempfile::tempdir().unwrap();
+        git(remote.path(), &["init", "--bare"]).unwrap();
+        git(repo, &["remote", "add", "origin", remote.path().to_str().unwrap()]).unwrap();
+        git(repo, &["commit", "--allow-empty", "-m", "initial"]).unwrap();
+        git(repo, &["tag", "v1"]).unwrap();
+        git(repo, &["tag", "-a", "v2", "-m", "release"]).unwrap();
+        git(repo, &["config", "push.followTags", "true"]).unwrap();
+        let push = |action: &str, target: &str, remote: &str| {
+            let mut req = request(repo, action);
+            req.target = target.into();
+            req.text = remote.into();
+            execute(req)
+        };
+        push("tag-push", "v1", "origin").unwrap();
+        let published = oid(remote.path(), "refs/tags/v1").unwrap();
+        assert!(oid(remote.path(), "refs/tags/v2").is_err());
+        assert!(git(remote.path(), &["for-each-ref", "refs/heads"]).unwrap().is_empty());
+        git(repo, &["config", "push.followTags", "false"]).unwrap();
+        git(repo, &["push", "-u", "origin", "HEAD"]).unwrap();
+        execute(request(repo, "push")).unwrap();
+        assert!(oid(remote.path(), "refs/tags/v2").is_err());
+        let mut req = request(repo, "push");
+        req.push_tags = true;
+        execute(req).unwrap();
+        assert_eq!(git(remote.path(), &["rev-parse", "refs/tags/v2"]).unwrap(), git(repo, &["rev-parse", "refs/tags/v2"]).unwrap());
+        git(repo, &["commit", "--allow-empty", "-m", "next"]).unwrap();
+        git(repo, &["tag", "-f", "v1"]).unwrap();
+        assert!(push("tag-push", "v1", "origin").is_err());
+        let mut req = request(repo, "push");
+        req.push_tags = true;
+        req.mode = "force".into();
+        assert!(execute(req).unwrap_err().contains("Branch pushed, but pushing tags failed"));
+        assert_eq!(oid(remote.path(), "refs/tags/v1").unwrap(), published);
+        assert!(push("tag-push", "missing", "origin").is_err());
+        assert!(push("tag-push", "v1:refs/heads/main", "origin").is_err());
+        assert!(push("tag-push", "v1", "--all").is_err());
     }
 
     #[test]

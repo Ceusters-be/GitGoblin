@@ -359,6 +359,7 @@ function worktreeMenu(event: MouseEvent | KeyboardEvent, path: string) {
 function tagMenu(event: MouseEvent | KeyboardEvent, tag: GitRef) {
   const name = tag.name.replace("refs/tags/", "");
   sidebarMenu.value?.open(event, [
+    actionItem("Push tag…", "tag-push", { target: name }),
     actionItem("Create branch here…", "branch-create", { target: tag.name }),
     {
       ...actionItem("Delete tag…", "tag-delete", { target: name }),
@@ -779,6 +780,15 @@ const definitions: Record<
     ],
     defaults: { target: "HEAD" },
   },
+  "tag-push": {
+    title: "Push tag",
+    description: "Publish this local tag to a remote. Existing remote tags are not overwritten.",
+    fields: [
+      { key: "target", label: "Tag name" },
+      { key: "text", label: "Remote name" },
+    ],
+    defaults: { text: "origin" },
+  },
   "tag-delete": {
     title: "Delete tag",
     description: "Deletes the local tag. Remote tags are unchanged.",
@@ -944,6 +954,7 @@ async function executeDialog() {
       return;
     }
     const params: Partial<GitRequest> = { ...values.value };
+    if (dialog.value === "push") params.pushTags = values.value.pushTags === "yes";
     if (dialog.value === "discard-files") {
       if (repo.value !== discardRepo.value)
         throw new Error(
@@ -1558,6 +1569,7 @@ onUnmounted(() => {
                   'revert',
                   'reset',
                   'tag-create',
+                  'tag-push',
                   'tag-delete',
                   'stash-save',
                   'stash-drop',
@@ -2666,6 +2678,16 @@ onUnmounted(() => {
                 :disabled="busy"
               />
               Force delete even if the branch is not merged
+            </label>
+            <label v-if="dialog === 'push'" class="force-option">
+              <AppInput
+                v-model="values.pushTags"
+                type="checkbox"
+                true-value="yes"
+                false-value=""
+                :disabled="busy"
+              />
+              Also push all local tags
             </label>
             <label v-if="dialog === 'push'" class="force-option">
               <AppInput
