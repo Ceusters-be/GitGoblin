@@ -1,22 +1,41 @@
 <script setup lang="ts">
-import { Keyboard, Palette, X } from 'lucide-vue-next';
+import { Check, Keyboard, Link2, LoaderCircle, Palette, X } from 'lucide-vue-next';
 import { TabsRoot, TabsList, TabsTrigger, TabsContent } from 'reka-ui';
 import { themes, type Theme } from '~/composables/useTheme';
-defineProps<{ theme: Theme; error: string }>();
+import { ref } from 'vue';
+const props = defineProps<{ theme: Theme; error: string; t3Connected?: boolean; t3Origin?: string; t3Error?: string; pairT3?: (pairing: string, server: string) => Promise<void>; category?: string }>();
 defineEmits<{ close: []; theme: [value: Theme] }>();
+const server = ref(props.t3Origin || 'http://127.0.0.1:3773');
+const pairing = ref('');
+const pairingError = ref('');
+const pairingBusy = ref(false);
+async function pair() {
+  if (pairingBusy.value || !pairing.value.trim() || !props.pairT3) return;
+  pairingBusy.value = true;
+  pairingError.value = '';
+  try {
+    await props.pairT3(pairing.value, server.value);
+    pairing.value = '';
+  } catch (error) {
+    pairingError.value = String(error);
+  } finally {
+    pairingBusy.value = false;
+  }
+}
 </script>
 
 <template>
-  <AppDialog title="Settings" @close="$emit('close')">
+  <AppDialog title="Settings" :dismissible="!pairingBusy" @close="$emit('close')">
     <AppDialogPanel class="settings-modal w-[820px] max-w-[calc(100vw-32px)] h-[460px] max-h-[calc(100dvh-32px)] flex flex-col overflow-hidden">
       <header class="settings-heading flex items-center justify-between py-[16px] px-[20px] border-b border-[var(--line)] [&_h2]:m-0 [&_h2]:text-[18px] [&_h2]:font-semibold [&_h2]:tracking-[-.3px]">
         <h2>Settings</h2>
-        <AppButton size="icon" aria-label="Close settings" @click="$emit('close')"><X :size="18" /></AppButton>
+        <AppButton size="icon" aria-label="Close settings" :disabled="pairingBusy" @click="$emit('close')"><X :size="18" /></AppButton>
       </header>
-      <TabsRoot default-value="appearance" orientation="vertical" class="settings-layout flex flex-1 min-h-0">
+      <TabsRoot :default-value="category || 'appearance'" orientation="vertical" class="settings-layout flex flex-1 min-h-0">
         <TabsList class="settings-nav flex flex-col gap-[4px] basis-[170px] shrink-0 grow-0 py-[12px] px-[8px] bg-[var(--raised)] border-r border-[var(--line)] [&>button]:justify-start [&>button]:p-[10px] [&>button]:text-[var(--fg-secondary)] [&>button[data-state=active]]:bg-[var(--selection)] [&>button[data-state=active]]:text-[var(--fg)] [@media(max-width:650px)]:basis-[135px]" aria-label="Settings categories">
           <TabsTrigger value="appearance" as-child><AppButton><Palette :size="16" />Appearance</AppButton></TabsTrigger>
           <TabsTrigger value="shortcuts" as-child><AppButton><Keyboard :size="16" />Shortcuts</AppButton></TabsTrigger>
+          <TabsTrigger value="t3" as-child><AppButton><Link2 :size="16" />T3 Code</AppButton></TabsTrigger>
         </TabsList>
         <div class="settings-content flex-1 min-w-0 p-[24px] overflow-auto [&_h3]:mt-0 [&_h3]:mx-0 [&_h3]:mb-[12px] [&_h3]:text-[16px] [&_h3]:font-medium [&_p]:text-[var(--muted)] [&_p]:text-[12px] [&_p]:leading-[1.7] [&_p]:mt-0 [&_p]:mx-0 [&_p]:mb-[18px] [&_[role=alert]]:text-[var(--danger)] [@media(max-width:650px)]:p-[16px]">
           <TabsContent value="appearance">
@@ -31,6 +50,32 @@ defineEmits<{ close: []; theme: [value: Theme] }>();
             </div>
             <p>Applied immediately across the workspace and remembered on this device.</p>
             <p v-if="error" role="alert">{{ error }}</p>
+          </TabsContent>
+          <TabsContent value="t3" class="t3-settings flex flex-col gap-[20px]">
+            <div class="flex items-start gap-[12px]">
+              <div class="flex size-[40px] shrink-0 items-center justify-center rounded-[10px] border border-[var(--line)] bg-[var(--raised)] text-[var(--accent)]"><Link2 :size="20" aria-hidden="true" /></div>
+              <div class="flex-1 min-w-0">
+                <div class="flex flex-wrap items-center gap-x-[12px] gap-y-[6px] mb-[5px]">
+                  <h3>T3 Code</h3>
+                  <span role="status" class="inline-flex items-center gap-[5px] rounded-full px-[8px] py-[3px] text-[10px] font-medium" :class="t3Connected ? 'bg-[var(--success-bg)] text-[var(--success)]' : 'bg-[var(--raised)] text-[var(--muted)]'">
+                    <Check v-if="t3Connected" :size="12" aria-hidden="true" />{{ t3Connected ? 'Connected to T3 Code.' : 'Not connected.' }}
+                  </span>
+                </div>
+                <p>Your conversations, alongside your code.</p>
+              </div>
+            </div>
+            <form class="flex flex-col gap-[14px] border-t border-[var(--line)] pt-[18px]" @submit.prevent="pair">
+              <div>
+                <h4 class="m-0 mb-[5px] text-[12px] font-semibold">{{ t3Connected ? 'Update connection' : 'Connect your workspace' }}</h4>
+                <p id="t3-pairing-help">Copy a pairing link from T3 Code’s connection settings and paste it below.</p>
+              </div>
+              <label>Local server<AppInput v-model="server" :disabled="pairingBusy" placeholder="http://127.0.0.1:3773" spellcheck="false" /></label>
+              <label>Pairing link or code<AppInput v-model="pairing" :disabled="pairingBusy" type="password" autocomplete="off" placeholder="Paste your pairing link or code" aria-describedby="t3-pairing-help" /></label>
+              <p v-if="pairingError || t3Error" role="alert" class="rounded-[6px] border border-[var(--danger)] bg-[var(--danger-bg)] px-[10px] py-[8px] break-words">{{ pairingError || t3Error }}</p>
+              <div class="flex justify-end pt-[2px]">
+                <AppButton type="submit" variant="primary" class="text-[12px] px-[14px] min-h-[34px]" :disabled="pairingBusy || !pairing.trim() || !pairT3"><LoaderCircle v-if="pairingBusy" :size="14" class="animate-spin" aria-hidden="true" /><Link2 v-else :size="14" aria-hidden="true" />{{ pairingBusy ? 'Connecting…' : 'Pair with T3 Code' }}</AppButton>
+              </div>
+            </form>
           </TabsContent>
           <TabsContent value="shortcuts">
             <h3>Keyboard shortcuts</h3>
@@ -47,3 +92,15 @@ defineEmits<{ close: []; theme: [value: Theme] }>();
     </AppDialogPanel>
   </AppDialog>
 </template>
+
+<style scoped>
+.t3-settings h3,
+.t3-settings p,
+.t3-settings label {
+  margin: 0;
+}
+.t3-settings label {
+  gap: 6px;
+  font-size: 12px;
+}
+</style>

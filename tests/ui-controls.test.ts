@@ -49,6 +49,7 @@ function mount(render: () => Vue.VNode) {
   document.body.append(host);
   const app = Vue.createApp({ setup: () => render });
   app.component('AppButton', AppButton);
+  app.component('AppInput', AppInput);
   app.component('AppDialog', AppDialog);
   app.component('AppDialogPanel', component('AppDialogPanel'));
   app.mount(host);
@@ -288,4 +289,29 @@ it('opens settings categories by keyboard and emits the selected theme', async (
   key(appearance, 'ArrowDown');
   await Vue.nextTick(); await Vue.nextTick();
   expect(document.activeElement?.textContent).toContain('Shortcuts');
+});
+
+it('pairs inside settings, keeps failed input for retry and clears it on success', async () => {
+  const settings = component('AppSettings');
+  const connected = Vue.ref(false);
+  const pair = vi.fn().mockRejectedValueOnce(new Error('Invalid pairing code')).mockImplementationOnce(async () => { connected.value = true; });
+  mount(() => Vue.h(settings, { theme: 'system', error: '', category: 't3', t3Origin: 'http://127.0.0.1:4000', t3Connected: connected.value, pairT3: pair }));
+  await Vue.nextTick();
+  const input = document.querySelector<HTMLInputElement>('input[type="password"]')!;
+  const submit = document.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+  expect(submit.disabled).toBe(true);
+  expect(document.querySelector('[role="status"]')?.textContent).toBe('Not connected.');
+  input.value = 'pairing-code';
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  await Vue.nextTick();
+  const form = document.querySelector('form')!;
+  form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  await vi.waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain('Invalid pairing code'));
+  expect(pair).toHaveBeenCalledWith('pairing-code', 'http://127.0.0.1:4000');
+  expect(input.value).toBe('pairing-code');
+  expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+  form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  await vi.waitFor(() => expect(input.value).toBe(''));
+  expect(document.querySelector('[role="status"]')?.textContent).toBe('Connected to T3 Code.');
+  expect(document.querySelector('[role="alert"]')).toBeNull();
 });

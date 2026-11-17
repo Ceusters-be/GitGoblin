@@ -74,6 +74,7 @@ import type {
 const w = useWorkbench();
 const { theme, error: themeError, setTheme } = useTheme();
 const settingsOpen = ref(false);
+const settingsCategory = ref("appearance");
 const {
   repo,
   recent,
@@ -502,6 +503,9 @@ const context = ref(""),
     updateBlocked: boolean;
     settle: (id: string) => Promise<void>;
     newConversation: (trigger?: HTMLButtonElement) => void;
+    pair: (pairing: string, server: string) => Promise<void>;
+    origin: string;
+    connectionError: string;
     stopAll: () => Promise<void>;
     focusComposer: () => void;
   }>(),
@@ -1204,7 +1208,7 @@ function reorder(index: number, delta: number) {
   [list[index], list[destination]] = [list[destination]!, list[index]!];
   rebaseCommits.value = list;
 }
-const updateBlocked = computed(() => busy.value || w.favoriteSaving.value || w.nameSaving.value || !!dialog.value || conflictOpen.value || !!renamePath.value || !!chat.value?.updateBlocked || threads.value.some(isThreadRunning) || Object.values(commitMessages.value).some(Boolean));
+const updateBlocked = computed(() => settingsOpen.value || busy.value || w.favoriteSaving.value || w.nameSaving.value || !!dialog.value || conflictOpen.value || !!renamePath.value || !!chat.value?.updateBlocked || threads.value.some(isThreadRunning) || Object.values(commitMessages.value).some(Boolean));
 async function beforeUpdateInstall() {
   if (updateBlocked.value) throw new Error('Finish operations, close editors, and send or clear drafts before updating.');
 }
@@ -1302,6 +1306,7 @@ onUnmounted(() => {
         >
           <img src="/icon.png" alt="" width="25" height="25" class="brand-logo-light shrink-0 object-contain hidden [[data-theme=daylight]_&]:block" draggable="false" />
           <img src="/icon-dark.png" alt="" width="25" height="25" class="brand-logo-dark shrink-0 object-contain [[data-theme=daylight]_&]:hidden" draggable="false" /><strong class="font-bold">GitGoblin</strong>
+          <span class="text-[11px] text-[var(--muted)] tabular-nums whitespace-nowrap" :title="`GitGoblin version ${appVersion}`">v{{ appVersion }}</span>
           <span class="shrink-0 whitespace-nowrap rounded-[4px] border border-[var(--line)] bg-[var(--raised)] ml-[5px] px-[5px] py-[2px] text-[9px] font-normal uppercase tracking-[1.4px] text-[var(--muted)]">Early access</span>
           <nav
             class="workspace-modes flex gap-[4px] flex-[0_0_164px] mt-0 mr-0 mb-0 ml-[12px] p-[3px] bg-[var(--bg)] border-solid border-[var(--line)] [&>button]:flex-1 [&>button]:justify-center [&>button]:gap-[7px] [&>button]:py-0 [&>button]:px-[7px] [&>button]:text-[var(--muted)] [&>button]:rounded-[6px] [&>button]:text-[12px] [&>button[aria-pressed='true']]:bg-[var(--selection)] [&_.mode-attention]:text-[var(--warning)] [&_.mode-attention]:flex [&_.mode-running]:text-[var(--success)] [&_.mode-running]:flex h-[32px] border-0 rounded-[7px] [&>button[aria-pressed='true']]:text-[var(--accent)] [&>button[aria-pressed='true']]:shadow-none"
@@ -1959,6 +1964,7 @@ onUnmounted(() => {
         :selected-thread-id="selectedThreadId"
         :open-thread-ids="chatTabs.ids"
         :worktrees="snapshot?.worktrees || []"
+        @connect-t3="settingsCategory = 't3'; settingsOpen = true"
         @activity="chatActivityStates = $event"
         @clear-context="context = ''"
         @select-worktree="openThreadWorktree"
@@ -2525,7 +2531,7 @@ onUnmounted(() => {
       </div>
     </main>
     <ContextMenu ref="sidebarMenu" @error="error = $event" />
-    <AppSettings v-if="settingsOpen" :theme="theme" :error="themeError" @theme="setTheme" @close="settingsOpen = false" />
+    <AppSettings v-if="settingsOpen" :theme="theme" :error="themeError" :t3-connected="t3Connected" :t3-origin="chat?.origin" :t3-error="chat?.connectionError" :pair-t3="chat?.pair" :category="settingsCategory" @theme="setTheme" @close="settingsOpen = false; settingsCategory = 'appearance'" />
     <Teleport to="body">
       <CloseChatDialog
         v-if="closingChat"

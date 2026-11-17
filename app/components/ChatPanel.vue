@@ -15,7 +15,6 @@ import {
   ArrowUp,
   Square,
   X,
-  Link2,
   MessageSquare,
   ShieldCheck,
   ChevronRight,
@@ -82,6 +81,7 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{
   clearContext: [];
+  connectT3: [];
   selectWorktree: [path: string, threadId: string];
   threads: [threads: T3Thread[], projects: T3Project[], connected: boolean];
   selection: [threadId: string];
@@ -95,11 +95,9 @@ const state = ref("disconnected"),
   projects = shallowRef<T3Project[]>([]),
   projection = shallowRef<T3Projection>(),
   selectedId = ref("");
-const pairing = ref(""),
-  origin = ref("http://127.0.0.1:3773"),
+const origin = ref("http://127.0.0.1:3773"),
   prompt = ref(""),
   sending = ref(false),
-  showPairing = ref(false),
   showNew = ref(false);
 const newProject = ref(""),
   newWorktree = ref(""),
@@ -587,17 +585,13 @@ function select(id: string) {
   client.selectThread(id);
   void scrollToLatest();
 }
-async function pair() {
-  try {
-    if (!desktop()) throw new Error("Pairing is available in the desktop app.");
-    const input = parsePairing(pairing.value, origin.value);
-    await invoke("t3_pair", input);
-    pairing.value = "";
-    showPairing.value = false;
-    await client.connect();
-  } catch (e) {
-    error.value = String(e);
-  }
+async function pair(pairing: string, server: string) {
+  if (!desktop()) throw new Error("Pairing is available in the desktop app.");
+  const input = parsePairing(pairing, server);
+  await invoke("t3_pair", input);
+  origin.value = input.origin;
+  await client.connect();
+  if (client.status !== "connected") throw new Error(client.error || "Could not connect to T3 Code.");
 }
 async function send() {
   if (switchingWorktree.value) return;
@@ -781,7 +775,7 @@ function newChat(trigger?: HTMLButtonElement) {
   if (creating.value) return;
   newConversationButton.value = trigger;
   if (!connected.value) {
-    showPairing.value = true;
+    emit("connectT3");
     return;
   }
   const defaults = conversationDefaults(
@@ -905,7 +899,10 @@ onUnmounted(() => {
   client.disconnect();
 });
 defineExpose({
-  updateBlocked: computed(() => !!chatQueue.value?.updateBlocked || requests.value.length > 0 || questions.value.length > 0 || sending.value || creating.value || switchingWorktree.value || !!settlingId.value || showNew.value || showPairing.value || !!prompt.value || [...drafts].some(([id, text]) => id !== selectedId.value && !!text) || Object.values(imageDrafts.value).some(images => images.length > 0)),
+  pair,
+  origin,
+  connectionError: computed(() => connected.value ? '' : error.value),
+  updateBlocked: computed(() => !!chatQueue.value?.updateBlocked || requests.value.length > 0 || questions.value.length > 0 || sending.value || creating.value || switchingWorktree.value || !!settlingId.value || showNew.value || !!prompt.value || [...drafts].some(([id, text]) => id !== selectedId.value && !!text) || Object.values(imageDrafts.value).some(images => images.length > 0)),
   settle,
   newConversation: newChat,
   focusComposer: () => composer.value?.focus(),
@@ -1165,15 +1162,10 @@ defineExpose({
         Your agents, beside your code.
       </h3>
       <p>
-        Connect T3 Code to follow conversations, give instructions, and review
+        Connect T3 Code in Settings to follow conversations, give instructions, and review
         changes in one place.
       </p>
-      <AppButton
-        class="secondary bg-[var(--raised)] [border-color:var(--line)] text-[var(--fg-secondary)]"
-        @click="showPairing = true"
-      >
-        <Link2 :size="14" />Connect T3 Code</AppButton
-      ><small class="[:where(&)]:text-[11px]"
+      <small class="[:where(&)]:text-[11px]"
         >Your Git workspace works independently.</small
       >
     </div>
@@ -1379,68 +1371,7 @@ defineExpose({
         </AppButton>
       </div>
     </div>
-    <Teleport to="body"
-      ><AppDialog
-        v-if="showPairing"
-        title="Connect T3 Code"
-        :dismissible="!false"
-        @close="showPairing = false"
-      >
-        <AppDialogPanel
-          class="modal w-[470px] max-w-full max-h-[90vh] overflow-auto p-[22px] [&_.worktree-toggle]:relative [&_.worktree-toggle]:flex [&_.worktree-toggle]:flex-row [&_.worktree-toggle]:items-center [&_.worktree-toggle]:gap-[12px] [&_.worktree-toggle]:p-[14px] [&_.worktree-toggle]:m-0 [&_.worktree-toggle]:border-[1px] [&_.worktree-toggle]:border-solid [&_.worktree-toggle]:border-[var(--line)] [&_.worktree-toggle]:rounded-[8px] [&_.worktree-toggle]:bg-[var(--panel)] [&_.worktree-toggle]:cursor-pointer [&_.worktree-toggle_input]:absolute [&_.worktree-toggle_input]:w-[1px] [&_.worktree-toggle_input]:h-[1px] [&_.worktree-toggle_input]:opacity-0"
-          aria-labelledby="pair-title"
-        >
-          <AppDialogHeader class="modal-heading">
-            <h2
-              class="[:where(&)]:m-0 [:where(&)]:text-[18px] [:where(&)]:font-semibold"
-              id="pair-title"
-            >
-              Connect T3 Code
-            </h2>
-            <AppButton
-              size="icon"
-              class="icon-button"
-              aria-label="Close"
-              @click="showPairing = false"
-            >
-              <X :size="18" />
-            </AppButton>
-          </AppDialogHeader>
-          <p>
-            Create a pairing link in T3 Code’s connection settings, then paste
-            it here. The session stays in memory until you close GitGoblin.
-          </p>
-          <label
-            >Local server<AppInput
-              v-model="origin"
-              placeholder="http://127.0.0.1:3773" /></label
-          ><label
-            >Pairing link or code<AppInput
-              v-model="pairing"
-              type="password"
-              autocomplete="off"
-              placeholder="Paste pairing link"
-              @keydown.enter="pair"
-          /></label>
-          <div
-            v-if="error"
-            class="inline-error text-[var(--danger)] bg-[var(--danger-bg)] py-[10px] px-[12px] text-[11px] leading-[1.7] whitespace-pre-wrap [overflow-wrap:anywhere]"
-          >
-            {{ error }}
-          </div>
-          <AppDialogFooter class="modal-footer">
-            <AppButton @click="showPairing = false"> Cancel</AppButton
-            ><AppButton
-              variant="primary"
-              class="primary [border-color:var(--line)]"
-              :disabled="!pairing.trim()"
-              @click="pair"
-            >
-              Pair with T3 Code
-            </AppButton>
-          </AppDialogFooter>
-        </AppDialogPanel>
-      </AppDialog>
+    <Teleport to="body">
       <AppDialog
         v-if="showNew"
         title="New conversation"
