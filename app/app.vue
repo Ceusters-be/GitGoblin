@@ -50,7 +50,6 @@ import { useWorkbench } from "~/composables/useWorkbench";
 import { useTheme } from "~/composables/useTheme";
 import { branchTree } from "~/lib/branches";
 import {
-  chatHistory,
   closeChatTab,
   moveChatTab,
   openChatTab,
@@ -549,7 +548,6 @@ watch(workspaceMode, async (mode, previous) => {
   if (sidebarScroll.value)
     sidebarScroll.value.scrollTop = sidebarPositions[mode];
 });
-const chatNeedsAttention = ref(false);
 const context = ref(""),
   chat = ref<{
     settle: (id: string) => Promise<void>;
@@ -590,7 +588,6 @@ const chatActivityStates = ref<
 >({});
 const seenResponses = ref<Record<string, string>>({});
 let tabsInitialized = false;
-let hadSavedTabs = false;
 const chatIndicators = computed(() =>
   Object.fromEntries(
     Object.entries(chatActivityStates.value).map(([id, activity]) => [
@@ -654,7 +651,12 @@ function closeChat(id: string) {
   if (busy.value || closingChat.value || !chatTabs.value.ids.includes(id))
     return;
   chatNavigation.value?.closePicker();
-  closingChat.value = threads.value.find((thread) => thread.id === id);
+  const thread = threads.value.find((thread) => thread.id === id);
+  if (thread?.settledOverride === "settled") {
+    chatTabs.value = closeChatTab(chatTabs.value, id);
+    return;
+  }
+  closingChat.value = thread;
 }
 async function confirmCloseChat(settle: boolean) {
   const thread = closingChat.value;
@@ -1226,10 +1228,6 @@ async function amendCommit() {
     error.value = String(e);
   }
 }
-function addContext(text: string) {
-  context.value = `File: ${selected.value || selectedCommit.value?.id || repo.value}\n\n${text}`;
-  chatVisible.value = true;
-}
 async function editContext(text: string) {
   context.value = `Repository: ${repo.value}\n\n${text}`;
   chatVisible.value = true;
@@ -1243,12 +1241,17 @@ function receiveThreads(ts: T3Thread[], ps: T3Project[], connected: boolean) {
   t3Connected.value = connected;
   if (!connected) return;
   const restoring = !tabsInitialized;
-  if (restoring) {
-    tabsInitialized = true;
-    if (!hadSavedTabs) {
-      const first = visibleThreads(repoThreads.value)[0] || chatHistory(ts)[0];
-      if (first) chatTabs.value = openChatTab(chatTabs.value, first.id);
-    }
+  tabsInitialized = true;
+  const known = new Set(restoring ? [] : visibleThreads(previous).map(thread => thread.id));
+  const ids = new Set(chatTabs.value.ids);
+  for (const thread of visibleThreads(ts)) {
+    if (!known.has(thread.id)) ids.add(thread.id);
+  }
+  if (ids.size !== chatTabs.value.ids.length) {
+    chatTabs.value = {
+      ids: [...ids],
+      selected: chatTabs.value.selected || visibleThreads(repoThreads.value)[0]?.id || [...ids][0]!,
+    };
   }
   for (const id of [...chatTabs.value.ids]) {
     const thread = ts.find((thread) => thread.id === id);
@@ -1373,7 +1376,6 @@ const preventBrowserMenu = (event: Event) => event.preventDefault();
 onMounted(() => {
   try {
     const savedTabs = localStorage.getItem("gitgoblin.chatTabs");
-    hadSavedTabs = savedTabs !== null;
     chatTabs.value = restoreChatTabs(JSON.parse(savedTabs || "null"));
     const saved = JSON.parse(
       localStorage.getItem("gitgoblin.seenChatResponses") || "{}",
@@ -1446,7 +1448,7 @@ onUnmounted(() => {
           <span class="text-[11px] text-[var(--muted)] tabular-nums whitespace-nowrap" :title="`GitGoblin version ${appVersion}`">v{{ appVersion }}</span>
           <span class="shrink-0 whitespace-nowrap rounded-[4px] border border-[var(--line)] bg-[var(--raised)] ml-[5px] px-[5px] py-[2px] text-[9px] font-normal uppercase tracking-[1.4px] text-[var(--muted)]">Early access</span>
           <nav
-            class="workspace-modes flex gap-[4px] flex-[0_0_164px] mt-0 mr-0 mb-0 ml-[12px] p-[3px] bg-[var(--bg)] border-solid border-[var(--line)] [&>button]:flex-1 [&>button]:justify-center [&>button]:gap-[7px] [&>button]:py-0 [&>button]:px-[7px] [&>button]:text-[var(--muted)] [&>button]:rounded-[6px] [&>button]:text-[12px] [&>button[aria-pressed='true']]:bg-[var(--selection)] [&_.mode-attention]:text-[var(--warning)] [&_.mode-attention]:flex [&_.mode-running]:text-[var(--success)] [&_.mode-running]:flex h-[32px] border-0 rounded-[7px] [&>button[aria-pressed='true']]:text-[var(--accent)] [&>button[aria-pressed='true']]:shadow-none"
+            class="workspace-modes grid w-[164px] shrink-0 grid-cols-[70px_minmax(0,1fr)] gap-[4px] mt-0 mr-0 mb-0 ml-[12px] p-[3px] bg-[var(--bg)] border-solid border-[var(--line)] [&>button]:min-w-0 [&>button]:justify-center [&>button]:gap-[4px] [&>button]:py-0 [&>button]:px-[7px] [&>button]:text-[var(--muted)] [&>button]:rounded-[6px] [&>button]:text-[12px] [&>button[aria-pressed='true']]:bg-[var(--selection)] [&_.mode-running]:text-[var(--success)] [&_.mode-running]:flex h-[32px] border-0 rounded-[7px] [&>button[aria-pressed='true']]:text-[var(--accent)] [&>button[aria-pressed='true']]:shadow-none"
             aria-label="Workspace mode"
           >
             <AppButton
@@ -1459,29 +1461,15 @@ onUnmounted(() => {
               :aria-pressed="chatVisible"
               @click="workspaceMode = 'chat'"
             >
-              <MessageSquare :size="16" />Chat
               <span
-                v-if="
-                  !chatVisible &&
-                  (chatNeedsAttention ||
-                    Object.values(chatIndicators).some(
-                      (state) => state.attention || state.unread,
-                    ))
-                "
-                class="mode-attention"
-                role="status"
-                aria-label="Chat needs your attention"
-                title="Chat needs your attention"
-                ><AlertTriangle :size="13"
-              /></span>
-              <span
-                v-else-if="!chatVisible && allActiveAgents.length"
+                v-if="allActiveAgents.length"
                 class="mode-running"
                 role="status"
                 :aria-label="`${allActiveAgents.length} agent tasks running`"
                 :title="`${allActiveAgents.length} agent tasks running`"
-                ><LoaderCircle :size="13" class="spin animate-spin"
+                ><LoaderCircle :size="16" class="spin animate-spin"
               /></span>
+              <MessageSquare v-else :size="16" />Chat
             </AppButton>
           </nav>
         </div>
@@ -2093,7 +2081,6 @@ onUnmounted(() => {
         @select-worktree="openThreadWorktree"
         @threads="receiveThreads"
         @selection="receiveChatSelection"
-        @attention="chatNeedsAttention = $event"
       />
       <div
         v-show="!chatVisible"
@@ -2387,7 +2374,6 @@ onUnmounted(() => {
                     !example && mode !== 'branch' && !selectedFile?.conflict
                   "
                   @patch="patch"
-                  @context="addContext"
                   @edit-context="editContext"
               /></template>
               <div
@@ -2556,7 +2542,6 @@ onUnmounted(() => {
                 :repo="example ? undefined : repo"
                 :target="selectedCommit?.id"
                 mode="history"
-                @context="addContext"
                 @edit-context="editContext"
               />
             </template>

@@ -383,7 +383,7 @@ fn history(repo: &Path, path: &str, search: &str, offset: usize, limit: Option<u
 
 pub fn is_read_only(action: &str) -> bool {
     matches!(action, "discard-plan" | "snapshot" | "status" | "refresh" | "history" | "diff" | "branch-files" | "commit-diff"
-        | "commit-message" | "reflog" | "blame" | "conflict" | "rebase-plan" | "image-diff")
+        | "commit-message" | "reflog" | "blame" | "conflict" | "rebase-plan" | "image-diff" | "markdown-preview")
 }
 
 fn worktrees(repo: &Path) -> Result<Vec<Value>, String> {
@@ -408,7 +408,7 @@ pub fn execute_checked(req: Request, check: impl Fn() -> Result<(), String>) -> 
     check()?;
     let repo = root(&req.repo)?;
     let value = match req.action.as_str() {
-        "image-diff" => images::diff(&repo, &req)?,
+        "image-diff" | "markdown-preview" => images::diff(&repo, &req)?,
         "discard-plan" | "discard-files" => {
             if req.files.is_empty() { return Err("Choose files to discard.".into()); }
             let statuses = status(&repo)?;

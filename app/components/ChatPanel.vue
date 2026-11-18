@@ -85,7 +85,6 @@ const emit = defineEmits<{
   selectWorktree: [path: string, threadId: string];
   threads: [threads: T3Thread[], projects: T3Project[], connected: boolean];
   selection: [threadId: string];
-  attention: [needed: boolean];
   activity: [states: Record<string, { attention: boolean; response: string }>];
 }>();
 const client = new T3Client(() => invoke<string>("t3_ticket"));
@@ -486,11 +485,6 @@ const requests = computed(
     ) || [],
 );
 const questions = computed(() => pendingQuestions(projection.value));
-watch(
-  [requests, questions],
-  () => emit("attention", !!(requests.value.length || questions.value.length)),
-  { immediate: true },
-);
 watch(questions, () => void scrollToLatest(), { flush: "post" });
 const connected = computed(() => state.value === "connected");
 watch(

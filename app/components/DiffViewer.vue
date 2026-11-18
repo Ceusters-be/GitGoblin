@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { git } from "~/lib/native";
 import type { ContextMenuHandle } from "~/lib/context-menu";
 import {
   computed,
@@ -9,7 +10,7 @@ import {
   onUnmounted,
   nextTick,
 } from "vue";
-import { Check, FileCode2, MessageSquarePlus, LoaderCircle } from "lucide-vue-next";
+import { Check, Eye, FileCode2, LoaderCircle } from "lucide-vue-next";
 import { diffFileStatus } from "~/lib/diff-files";
 import { diffGeometry, diffViewport } from "~/lib/diff-geometry";
 import { createDiffSession, type DiffViewRequest } from "~/lib/diff-session";
@@ -52,7 +53,6 @@ onUnmounted(() => worker?.terminate());
 watch(() => [props.text, props.path], highlight);
 const emit = defineEmits<{
   patch: [text: string];
-  context: [text: string];
   editContext: [text: string];
   "update:wholeFile": [value: boolean];
 }>();
@@ -124,6 +124,26 @@ onUnmounted(() => resize?.disconnect());
 const geometry = shallowRef(diffViewport(diffGeometry('', 'split', 23, 11), 0, 600, 23));
 const selectedFile = ref("");
 const navigationFiles = computed(() => geometry.value.navigationFiles);
+const markdownPath = computed(() => props.path || selectedFile.value || (navigationFiles.value.length === 1 ? navigationFiles.value[0]?.path : ""));
+const canPreview = computed(() => props.repo && /\.(md|markdown)$/i.test(markdownPath.value || ""));
+const preview = ref(false);
+const previewText = ref("");
+const previewStatus = ref("");
+watch([preview, markdownPath, () => props.repo, () => props.mode, () => props.target, () => props.version, () => props.text], async (_, __, cleanup) => {
+  if (!preview.value || !canPreview.value) return;
+  let active = true;
+  cleanup(() => { active = false; });
+  previewStatus.value = "Loading preview…";
+  try {
+    const text = await git<string>({ repo: props.repo!, path: markdownPath.value!, action: "markdown-preview", mode: props.mode, target: props.target });
+    if (active) {
+      previewText.value = text;
+      previewStatus.value = "";
+    }
+  } catch (error) {
+    if (active) previewStatus.value = String(error);
+  }
+});
 watch(() => [props.path, props.mode], () => { selectedFile.value = ""; });
 watch(navigationFiles, (files) => {
   if (!files.some(file => file.path === selectedFile.value)) selectedFile.value = "";
@@ -311,21 +331,6 @@ function stage(indices?: number[], hunkStart?: number) {
   if (geometryWorker) geometryWorker.postMessage(request);
   else receiveGeometry(localSession(request));
 }
-
-function context() {
-  const lines = props.text.split("\n");
-  emit(
-    "context",
-    selected.value.size
-      ? [...selected.value]
-          .sort((a, b) => a - b)
-          .map((i) => lines[i])
-          .join("\n")
-      : selectedFile.value
-        ? props.text.split(/(?=^diff --git )/m).find(part => diffFileStatus(part)?.path === selectedFile.value) || props.text
-        : props.text,
-  );
-}
 </script>
 <template>
   <AppCodeSurface
@@ -423,12 +428,14 @@ function context() {
         <Check :size="13" />{{
           mode === "staged" ? "Unstage" : "Stage"
         }}
-        selection</AppButton
-      ><AppButton
-        class="small text-[11px] py-[4px] px-[7px] [border-color:var(--line)] rounded-[4px]"
-        @click="context"
+        selection</AppButton>
+      <AppButton
+        v-if="canPreview"
+        class="small ml-auto shrink-0 gap-1.5 whitespace-nowrap"
+        :aria-pressed="preview"
+        @click="preview = !preview"
       >
-        <MessageSquarePlus :size="14" />Add to chat
+        <Eye :size="14" aria-hidden="true" />Markdown preview
       </AppButton>
     </div>
     <div
@@ -439,7 +446,11 @@ function context() {
     </div>
     <div class="diff-body flex min-h-0 flex-1 [&_.diff-scroll]:min-w-0">
       <DiffFileNavigator v-if="navigationFiles.length > 1" :files="navigationFiles" :selected="selectedFile" @select="selectedFile = $event" />
-      <div class="diff-main flex flex-col flex-1 min-w-0 min-h-0 relative">
+      <div v-if="preview && canPreview" class="min-w-0 flex-1 overflow-auto p-4">
+        <p v-if="previewStatus" role="status">{{ previewStatus }}</p>
+        <ChatMarkdown v-else class="mx-auto max-w-[80ch] py-2" :text="previewText" />
+      </div>
+      <div v-show="!(preview && canPreview)" class="diff-main flex flex-col flex-1 min-w-0 min-h-0 relative">
         <div
           v-if="preparing || (loading && !text)"
           class="diff-pending absolute inset-0 z-[1] flex flex-col items-center justify-center gap-[10px] bg-[var(--panel)] text-[var(--muted)] pointer-events-none"

@@ -13,14 +13,14 @@ fn blob(repo: &Path, revision: &str, path: &str) -> Result<Option<Vec<u8>>, Stri
     }) else { return Ok(None) };
     let fields: Vec<_> = entry.split_once('\t').unwrap().0.split_whitespace().collect();
     if !matches!(fields[0], "100644" | "100755") {
-        return Err("Image previews require a regular file.".into());
+        return Err("File previews require a regular file.".into());
     }
     if revision == ":" && fields[2] != "0" {
-        return Err("Resolve this image's merge conflict to preview it.".into());
+        return Err("Resolve the merge conflict to preview it.".into());
     }
     let id = fields[if revision == ":" { 1 } else { 2 }];
     let size: u64 = git(repo, &["cat-file", "-s", id])?.trim().parse().map_err(|_| "Invalid image size")?;
-    if size > LIMIT { return Err("Image preview is limited to 8 MiB per version.".into()) }
+    if size > LIMIT { return Err("File preview is limited to 8 MiB per version.".into()) }
     bytes(repo, &["cat-file", "blob", id], None).map(Some)
 }
 
@@ -28,6 +28,8 @@ pub(super) fn diff(repo: &Path, req: &Request) -> Result<Value, String> {
     relative(&req.path)?;
     let extension = Path::new(&req.path).extension().and_then(|s| s.to_str()).unwrap_or("").to_ascii_lowercase();
     let mime = match extension.as_str() {
+        "md" | "markdown" if req.action == "markdown-preview" => "text/markdown",
+        _ if req.action == "markdown-preview" => return Err("Choose a Markdown file.".into()),
         "png" => "image/png", "jpg" | "jpeg" => "image/jpeg", "gif" => "image/gif",
         "webp" => "image/webp", "bmp" => "image/bmp", "ico" => "image/x-icon",
         "svg" => "image/svg+xml", "avif" => "image/avif",
@@ -48,7 +50,6 @@ pub(super) fn diff(repo: &Path, req: &Request) -> Result<Value, String> {
         _ => return Err("Unknown image comparison mode.".into()),
     };
     let old_path = if req.text.is_empty() { &req.path } else { relative(&req.text)?; &req.text };
-    let original = before.as_deref().map(|rev| blob(repo, rev, old_path)).transpose()?.flatten();
     let modified = if let Some(rev) = after {
         blob(repo, &rev, &req.path)?
     } else {
@@ -56,12 +57,19 @@ pub(super) fn diff(repo: &Path, req: &Request) -> Result<Value, String> {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
             Err(e) => return Err(e.to_string()),
             Ok(meta) => {
-                if !meta.is_file() { return Err("Image previews require a regular file.".into()) }
-                if meta.len() > LIMIT { return Err("Image preview is limited to 8 MiB per version.".into()) }
+                if !meta.is_file() { return Err("File previews require a regular file.".into()) }
+                if meta.len() > LIMIT { return Err("File preview is limited to 8 MiB per version.".into()) }
                 Some(fs::read(file_path(repo, &req.path)?).map_err(|e| e.to_string())?)
             }
         }
     };
+    let original = if mime != "text/markdown" || modified.is_none() {
+        before.as_deref().map(|rev| blob(repo, rev, old_path)).transpose()?.flatten()
+    } else { None };
+    if mime == "text/markdown" {
+        let data = modified.or(original).ok_or("File unavailable for preview.")?;
+        return String::from_utf8(data).map(Value::String).map_err(|_| "Markdown preview requires UTF-8 text.".into());
+    }
     Ok(json!({ "mime": mime, "original": original, "modified": modified }))
 }
 
@@ -69,6 +77,23 @@ pub(super) fn diff(repo: &Path, req: &Request) -> Result<Value, String> {
 mod tests {
     use super::*;
     use super::super::tests::{fixture, request};
+
+    #[test]
+    fn markdown_preview_reads_the_selected_version() {
+        let dir = fixture();
+        let repo = fs::canonicalize(dir.path()).unwrap();
+        let mut req = request(&repo, "markdown-preview");
+        req.path = "notes.md".into();
+        fs::write(repo.join(&req.path), "# Staged").unwrap();
+        git(&repo, &["add", "notes.md"]).unwrap();
+        fs::write(repo.join(&req.path), "# Working").unwrap();
+        req.mode = "staged".into();
+        assert_eq!(diff(&repo, &req).unwrap(), "# Staged");
+        req.mode = "working".into();
+        assert_eq!(diff(&repo, &req).unwrap(), "# Working");
+        fs::remove_file(repo.join(&req.path)).unwrap();
+        assert_eq!(diff(&repo, &req).unwrap(), "# Staged");
+    }
 
     #[test]
     fn image_diff_reads_each_git_version_and_absent_sides() {

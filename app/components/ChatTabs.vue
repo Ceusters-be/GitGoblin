@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { TabsList, TabsRoot, TabsTrigger } from "reka-ui";
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
-import { ChevronDown, MessageSquare, Search, X } from "lucide-vue-next";
+import { ChevronDown, Folder, MessageSquare, Search, X } from "lucide-vue-next";
 import type { T3Project, T3Thread } from "~/lib/types";
 import { isThreadRunning, repositoryThreadKey, visibleThreads } from "~/lib/threads";
 import type { ContextMenuHandle, ContextMenuItem } from "~/lib/context-menu";
@@ -63,6 +63,12 @@ function root(thread: T3Thread) {
     thread.worktreePath ||
     ""
   );
+}
+function projectColor(thread: T3Thread) {
+  const key = repositoryThreadKey(root(thread)) || thread.projectId;
+  let hash = 0;
+  for (const char of key) hash = (Math.imul(hash, 31) + char.charCodeAt(0)) | 0;
+  return `hsl(${((hash >>> 0) * 137.508) % 360} 65% 55%)`;
 }
 function name(thread: T3Thread) {
   return (
@@ -226,9 +232,15 @@ defineExpose({ openAll, closePicker: () => (pickerOpen.value = false) });
                 />
                 <span
                   class="tab-label grid min-w-0 [&_small]:overflow-hidden [&_small]:whitespace-nowrap [&_small]:text-ellipsis [&_strong]:overflow-hidden [&_strong]:whitespace-nowrap [&_strong]:text-ellipsis [&_small]:text-[10px] [&_small]:leading-[12px] [&_small]:text-[var(--fg-secondary)] [&_strong]:text-[12px] [&_strong]:leading-[15px] [&_strong]:font-medium [&_strong]:text-[var(--fg)] gap-[1px]"
-                  ><strong>{{ thread.title }}</strong
+                  ><strong :class="{ 'line-through': thread.settledOverride === 'settled' }">{{ thread.title }}</strong
                   ><small class="[:where(&)]:text-[11px]"
-                    >{{ name(thread)
+                    ><Folder
+                      :size="11"
+                      class="mr-1 inline-block align-[-1px]"
+                      :style="{ color: projectColor(thread) }"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    />{{ name(thread)
                     }}<span v-if="worktree(thread)">
                       · {{ worktree(thread) }}</span
                     ></small
@@ -348,7 +360,7 @@ defineExpose({ openAll, closePicker: () => (pickerOpen.value = false) });
                     "
                   />
                   <span
-                    ><strong>{{ thread.title }}</strong
+                    ><strong :class="{ 'line-through': thread.settledOverride === 'settled' }">{{ thread.title }}</strong
                     ><small class="[:where(&)]:text-[11px]"
                       >{{ worktree(thread)
                       }}{{
