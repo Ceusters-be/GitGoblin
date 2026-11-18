@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import FileTypeIcon from "./FileTypeIcon.vue";
 import { computed, ref, watch, onMounted, onUnmounted, nextTick } from "vue";
-import { ChevronRight, ChevronDown, Folder, FileCode2 } from "lucide-vue-next";
+import { ChevronRight, ChevronDown, Folder } from "lucide-vue-next";
 import { fileChange, fileTree, type FileNode } from "~/lib/files";
 import type { FileStatus } from "~/lib/types";
 import { selectFiles } from "~/lib/file-selection";
@@ -289,7 +290,7 @@ function toggle(path: string) {
           ><span
             v-if="tree"
             class="tree-chevron-space w-[11px] shrink-0"
-            aria-hidden="true" /><FileCode2 :size="13"
+            aria-hidden="true" /><FileTypeIcon :path="row.path" :size="16"
         /></template>
         <span
           class="compact-file-name overflow-hidden text-ellipsis whitespace-nowrap"

@@ -19,6 +19,7 @@ function component(name: string) {
   const compiled = compileScript(descriptor, { id: name, inlineTemplate: true });
   const exports: any = {};
   const modules: Record<string, unknown> = { vue: Vue, 'lucide-vue-next': Icons,
+    './FileTypeIcon.vue': { default: Vue.defineComponent(() => () => Vue.h('img')) },
     '~/lib/files': files, '~/lib/file-selection': selection, '~/lib/diff': diff,
     '~/lib/diff-window': windowing, '~/lib/diff-files': statuses, '~/lib/diff-geometry': geometry, '~/lib/diff-session': session,
     '~/lib/native': { git: imageGit } };

@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import FileTypeIcon from "./FileTypeIcon.vue";
 import {
   X,
   ChevronLeft,
   ChevronRight,
   Check,
-  FileCode2,
   AlertTriangle,
   ArrowDown,
   GitMerge,
@@ -327,7 +327,7 @@ onMounted(() => {
             :disabled="loading"
             @click="select(file.path)"
           >
-            <FileCode2 :size="16" /><span
+            <FileTypeIcon :path="file.path" :size="16" /><span
               ><strong>{{ filename(file.path) }}</strong
               ><small class="[:where(&)]:text-[11px]">{{
                 directory(file.path) || "Repository root"

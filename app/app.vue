@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FileTypeIcon from "./components/FileTypeIcon.vue";
 import {
   PopoverContent,
   PopoverPortal,
@@ -27,7 +28,6 @@ import {
   Settings2,
   X,
   Check,
-  FileCode2,
   Layers,
   List,
   ListTree,
@@ -2318,7 +2318,7 @@ onUnmounted(() => {
                 ><div
                   class="file-heading flex items-center gap-[9px] py-[8px] px-[12px] border-b-[1px] border-solid border-b-[var(--line)] min-h-[var(--review-heading-height)] [&>svg]:text-[var(--muted)]  [&>span:first-of-type]:flex-1 [&>span:first-of-type]:overflow-hidden [&>span:first-of-type]:whitespace-nowrap [@media(max-width:1250px)]:gap-[6px] [@media(max-width:1250px)]:[&>span:first-of-type]:text-[10px] h-[var(--review-heading-height)] bg-[var(--panel)] [&>span:first-of-type]:[font-family:inherit] [&>span:first-of-type]:text-[12px]! [&>span:first-of-type]:text-[var(--fg)]"
                 >
-                  <FileCode2 :size="15" /><span :title="selected">{{
+                  <FileTypeIcon :path="selected" :size="15" /><span :title="selected">{{
                     selected
                   }}</span
                   ><span

@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import FileTypeIcon from "./FileTypeIcon.vue";
 import { computed, ref, useId } from 'vue';
-import { ChevronRight, ChevronDown, Folder, FileCode2 } from 'lucide-vue-next';
+import { ChevronRight, ChevronDown, Folder } from 'lucide-vue-next';
 import { fileTree, fileChange, type FileNode } from '~/lib/files';
 import type { FileStatus } from '~/lib/types';
 const props = defineProps<{ files: FileStatus[]; selected: string }>();
@@ -47,7 +48,7 @@ function toggle(path: string) {
         :style="{ paddingLeft: `${6 + row.depth * 14}px` }"
         @click="row.file ? emit('select', row.path) : toggle(row.path)">
         <template v-if="!row.file"><ChevronRight v-if="collapsed.has(row.path) && !filter" :size="12" class="shrink-0" /><ChevronDown v-else :size="12" class="shrink-0" /><Folder :size="13" class="shrink-0" /></template>
-        <template v-else><span v-if="tree" class="w-[12px] shrink-0" aria-hidden="true" /><FileCode2 :size="13" class="shrink-0" /></template>
+        <template v-else><span v-if="tree" class="w-[12px] shrink-0" aria-hidden="true" /><FileTypeIcon :path="row.path" :size="16" class="shrink-0" /></template>
         <span class="truncate">{{ row.name }}</span>
         <span v-if="row.file" class="ml-auto shrink-0 rounded px-1.5 py-0.5 text-[9px] [&.added]:bg-[var(--success-bg)] [&.added]:text-[var(--success)] [&.removed]:bg-[var(--danger-bg)] [&.removed]:text-[var(--danger)] [&.modified]:bg-[var(--warning-bg)] [&.modified]:text-[var(--warning)] [&.renamed]:bg-[var(--selection)] [&.renamed]:text-[var(--fg)]" :class="fileChange(row.file, 'staged').kind" :title="fileChange(row.file, 'staged').label">{{ fileChange(row.file, 'staged').label }}</span>
       </AppButton>
