@@ -15,6 +15,11 @@ const aliases: Record<string, string> = {
   icns: "image", woff: "font", woff2: "font", ttf: "font", otf: "font",
   slnx: "sln", cshtml: "razor", props: "xml", targets: "xml", nuspec: "nuget",
   ps1: "powershell", psm1: "powershell", sh: "shell", bash: "shell", txt: "text",
+  resx: "xml", config: "xml", cmd: "bat", eot: "font",
+  xlsx: "table", xls: "table", dtsx: "ssis", conmgr: "ssis",
+  dtproj: "ssis", params: "xml", database: "sql", docx: "document",
+  webmanifest: "json", nswag: "json", "code-workspace": "json",
+  snk: "key", crt: "cert", "7z": "archive",
 };
 const filenames: Record<string, string> = {
   dockerfile: "docker", ".dockerignore": "docker", ".gitignore": "git",
@@ -23,6 +28,8 @@ const filenames: Record<string, string> = {
   "cargo.toml": "cargo", "cargo.lock": "cargo", "nuget.config": "nuget",
   "nuxt.config.ts": "nuxt", "vite.config.ts": "vite", "vitest.config.ts": "vitest",
   "tauri.conf.json": "tauri", license: "license",
+  ".platform": "fabric", ".schedules": "fabric", ".gitkeep": "git",
+  ".env.example": "settings", "env.example": "settings", ".env-example": "settings",
 };
 const src = computed(() => {
   const name = props.path.split(/[\\/]/).pop()?.toLowerCase() ?? "";

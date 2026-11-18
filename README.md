@@ -29,6 +29,14 @@ Use Reka UI primitives for interactive controls and unprefixed Tailwind utilitie
 
 `app/assets/tailwind.css` contains the Tailwind import and shared theme tokens only. Reuse `AppButton` (`variant="primary"`, `size="icon"`), `AppInput`, `AppTextarea`, and the dialog panel/header/footer components. Component classes can override their defaults. The lightweight functional primitives preserve native template refs and forward attributes and events; inputs use Vue's native model directives, including composition and checkbox handling. Keep one-off utilities in templates. Inline values are reserved for runtime geometry such as resizable panes, virtualized rows, and graph positions.
 
+### File icons
+
+Use official SVGs from [vscode-icons](https://github.com/vscode-icons/vscode-icons/tree/814aab8318900f47efeae6f1c4691494ae764199/icons). Copy the SVG unchanged into [app/assets/file-icons](app/assets/file-icons) and keep the bundled [license](app/assets/file-icons/LICENSE). For example, save `file_type_handlebars.svg` as `handlebars.svg`. The component automatically picks it up for files ending in `.handlebars`.
+
+When several types share an icon, reuse the asset through `aliases` in [FileTypeIcon.vue](app/components/FileTypeIcon.vue), as `xlsx` and `xls` both use `table.svg`. Use `filenames` for exact names such as `.env.example`. Lookup is case-insensitive and checks the filename first, then the extension alias, then the extension itself. Missing assets fall back to `default.svg`.
+
+To verify a change, compare the copied SVG with its upstream source and check a representative filename in the changed-files list.
+
 ## Releases
 
 Run `npm run release:version -- X.Y.Z`, commit the version changes, and push a matching `vX.Y.Z` tag. The workflow tests and builds Windows, macOS (Apple Silicon and Intel), and Linux, then publishes only after validating every signed updater asset.
