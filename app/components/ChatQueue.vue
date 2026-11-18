@@ -26,7 +26,6 @@ function reorder(index: number, direction: number) {
   void action('queued-run.reorder', { runId: rows.value[index]!.run.id,
     beforeRunId: rows.value[direction < 0 ? index - 1 : index + 2]?.run.id || null });
 }
-defineExpose({ updateBlocked: computed(() => pending.value || !!editing.value) });
 </script>
 
 <template>

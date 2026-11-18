@@ -500,7 +500,6 @@ watch(workspaceMode, async (mode, previous) => {
 const chatNeedsAttention = ref(false);
 const context = ref(""),
   chat = ref<{
-    updateBlocked: boolean;
     settle: (id: string) => Promise<void>;
     newConversation: (trigger?: HTMLButtonElement) => void;
     pair: (pairing: string, server: string) => Promise<void>;
@@ -1208,10 +1207,6 @@ function reorder(index: number, delta: number) {
   [list[index], list[destination]] = [list[destination]!, list[index]!];
   rebaseCommits.value = list;
 }
-const updateBlocked = computed(() => settingsOpen.value || busy.value || w.favoriteSaving.value || w.nameSaving.value || !!dialog.value || conflictOpen.value || !!renamePath.value || !!chat.value?.updateBlocked || threads.value.some(isThreadRunning) || Object.values(commitMessages.value).some(Boolean));
-async function beforeUpdateInstall() {
-  if (updateBlocked.value) throw new Error('Finish operations, close editors, and send or clear drafts before updating.');
-}
 function keydown(event: KeyboardEvent) {
   if ((event.ctrlKey || event.metaKey) && event.key === ',' && !event.altKey) {
     event.preventDefault();
@@ -1600,7 +1595,7 @@ onUnmounted(() => {
           </div>
         </div>
         <AppButton size="icon" class="icon-button" title="Settings (Ctrl+,)" aria-label="Settings" @click="settingsOpen = true"><Settings2 :size="17" /></AppButton>
-        <AppUpdater :blocked="updateBlocked" :before-install="beforeUpdateInstall" />
+        <AppUpdater />
         <WindowControls v-if="desktop()" @error="error = $event" /></header
     ></PopoverRoot>
     <div class="workspace-banners col-span-full min-w-0">

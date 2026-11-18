@@ -4,7 +4,6 @@ import { isTauri } from '@tauri-apps/api/core';
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 
-const props = defineProps<{ blocked: boolean; beforeInstall: () => Promise<void> }>();
 const desktop = isTauri();
 const state = ref<'idle' | 'checking' | 'downloading' | 'ready' | 'installing' | 'error'>('idle');
 const message = ref('Check for updates');
@@ -43,11 +42,9 @@ async function checkUpdate() {
   }
 }
 async function install() {
-  if (!update || props.blocked || state.value !== 'ready') return;
+  if (!update || state.value !== 'ready') return;
   state.value = 'installing';
   try {
-    await props.beforeInstall();
-    if (props.blocked) throw new Error('Finish Git operations and send or clear drafts first.');
     await update.install();
     await relaunch();
   } catch (error) {
@@ -71,8 +68,8 @@ onBeforeUnmount(() => {
 
 <template>
   <AppButton v-if="desktop" class="text-xs"
-    :title="state === 'ready' && blocked ? 'Finish Git operations and send or clear drafts before updating.' : message"
-    :disabled="['checking', 'downloading', 'installing'].includes(state) || (state === 'ready' && blocked)"
+    :title="message"
+    :disabled="['checking', 'downloading', 'installing'].includes(state)"
     @click="state === 'ready' ? install() : checkUpdate()">
     {{ state === 'ready' ? 'Restart to update' : state === 'downloading' ? message : state === 'checking' ? 'Checking…' : state === 'installing' ? 'Updating…' : state === 'error' ? 'Retry update' : 'Updates' }}
   </AppButton>
