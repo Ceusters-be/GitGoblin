@@ -7,7 +7,9 @@ build and the updater manifest validation succeed. Failed builds leave a draft;
 rerun failed jobs to finish it. Never replace assets of an already published release.
 
 Windows ships NSIS .exe and MSI installers. The updater prefers NSIS. macOS ships
-separate Apple Silicon and Intel DMGs plus app archives for updates. Linux ships
+separate Apple Silicon and Intel DMGs plus app archives for updates. Linux releases
+are currently paused; the build configuration is commented out for later re-enabling.
+When enabled, Linux ships
 x64 AppImage, deb and rpm; use AppImage for in-app updates. deb/rpm installations
 must be upgraded by installing a newer package.
 

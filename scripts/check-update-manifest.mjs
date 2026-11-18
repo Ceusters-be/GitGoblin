@@ -7,7 +7,10 @@ if (release) assert.equal(release.tag_name, tag, 'Release tag mismatch');
 const prefix = `https://github.com/${repository}/releases/download/${encodeURIComponent(tag)}/`;
 const apiPrefix = `https://api.github.com/repos/${repository}/releases/assets/`;
 assert.equal(manifest.version.replace(/^v/, ''), tag.replace(/^v/, ''));
-for (const platform of ['windows-x86_64', 'darwin-aarch64', 'darwin-x86_64', 'linux-x86_64'])
+for (const platform of [
+  'windows-x86_64', 'darwin-aarch64', 'darwin-x86_64',
+  // 'linux-x86_64', // Restore when Linux releases are re-enabled.
+])
   assert.ok(manifest.platforms?.[platform], `Missing platform ${platform}`);
 for (const [platform, artifact] of Object.entries(manifest.platforms)) {
   assert.ok(artifact?.signature?.trim(), `Missing signature for ${platform}`);
@@ -25,5 +28,5 @@ const manifest = JSON.parse(readFileSync(process.argv[2], 'utf8'));
 const tag = process.argv[3];
 const release = process.argv[4] ? JSON.parse(readFileSync(process.argv[4], 'utf8')) : undefined;
 validateManifest(manifest, tag, release);
-console.log('All four updater platforms are present and signed');
+console.log('All required updater platforms are present and signed');
 }

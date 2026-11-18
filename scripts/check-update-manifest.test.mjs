@@ -13,6 +13,11 @@ test('accepts both API asset URLs and tagged browser URLs belonging to the relea
     validateManifest(manifest, 'v0.1.0', release);
   }
 });
+test('accepts releases without Linux while Linux builds are paused', () => {
+  const { manifest, release } = fixture();
+  delete manifest.platforms['linux-x86_64'];
+  validateManifest(manifest, 'v0.1.0', release);
+});
 test('rejects unknown assets, other hosts, wrong tags, missing platforms and signatures', () => {
   for (const mutate of [
     m => m.platforms['windows-x86_64'].url += '999',
