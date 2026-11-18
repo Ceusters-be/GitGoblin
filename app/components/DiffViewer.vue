@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { parseDiffFiles } from "~/lib/diff";
 import { git } from "~/lib/native";
 import type { ContextMenuHandle } from "~/lib/context-menu";
 import {
@@ -127,17 +128,35 @@ const navigationFiles = computed(() => geometry.value.navigationFiles);
 const markdownPath = computed(() => props.path || selectedFile.value || (navigationFiles.value.length === 1 ? navigationFiles.value[0]?.path : ""));
 const canPreview = computed(() => props.repo && /\.(md|markdown)$/i.test(markdownPath.value || ""));
 const preview = ref(false);
-const previewText = ref("");
+type MarkdownVersions = { original: string | null; modified: string | null };
+const previewVersions = shallowRef<MarkdownVersions>({ original: null, modified: null });
+const previewFile = computed(() => {
+  if (!preview.value || !canPreview.value) return;
+  const files = parseDiffFiles(props.text);
+  return files.find(file => diffFileStatus(file.header)?.path === markdownPath.value)
+    || (props.path && files.length === 1 ? files[0] : undefined);
+});
+const previewLines = computed(() => {
+  const original = new Set<number>(), modified = new Set<number>();
+  for (const hunk of previewFile.value?.hunks || []) {
+    for (const line of hunk.lines) {
+      if (line.kind === "delete" && line.old !== null) original.add(line.old);
+      if (line.kind === "add" && line.next !== null) modified.add(line.next);
+    }
+  }
+  return { original, modified };
+});
+const previewSides = ["original", "modified"] as const;
 const previewStatus = ref("");
 watch([preview, markdownPath, () => props.repo, () => props.mode, () => props.target, () => props.version, () => props.text], async (_, __, cleanup) => {
   if (!preview.value || !canPreview.value) return;
   let active = true;
   cleanup(() => { active = false; });
-  previewStatus.value = "Loading preview�";
+  previewStatus.value = "Loading preview…";
   try {
-    const text = await git<string>({ repo: props.repo!, path: markdownPath.value!, action: "markdown-preview", mode: props.mode, target: props.target });
+    const versions = await git<MarkdownVersions>({ repo: props.repo!, path: markdownPath.value!, action: "markdown-preview", text: diffFileStatus(previewFile.value?.header || "")?.oldPath, mode: props.mode, target: props.target });
     if (active) {
-      previewText.value = text;
+      previewVersions.value = versions;
       previewStatus.value = "";
     }
   } catch (error) {
@@ -448,7 +467,15 @@ function stage(indices?: number[], hunkStart?: number) {
       <DiffFileNavigator v-if="navigationFiles.length > 1" :files="navigationFiles" :selected="selectedFile" @select="selectedFile = $event" />
       <div v-if="preview && canPreview" class="min-w-0 flex-1 overflow-auto p-4">
         <p v-if="previewStatus" role="status">{{ previewStatus }}</p>
-        <ChatMarkdown v-else class="mx-auto max-w-[80ch] py-2" :text="previewText" />
+        <div v-else class="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,32ch),1fr))]">
+          <template v-for="side in previewSides" :key="side">
+            <section v-if="previewVersions[side] !== null" class="min-w-0"
+              :class="side === 'original' ? '[&_.markdown-change]:bg-[var(--danger-bg)]' : '[&_.markdown-change]:bg-[var(--success-bg)]'">
+              <h3 class="mb-3 text-xs text-[var(--fg-secondary)]">{{ side === 'original' ? 'Original · removals' : 'Modified · additions' }}</h3>
+              <ChatMarkdown class="mx-auto max-w-[80ch]" :text="previewVersions[side]!" :changed-lines="previewLines[side]" />
+            </section>
+          </template>
+        </div>
       </div>
       <div v-show="!(preview && canPreview)" class="diff-main flex flex-col flex-1 min-w-0 min-h-0 relative">
         <div

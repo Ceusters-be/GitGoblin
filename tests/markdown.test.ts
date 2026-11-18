@@ -24,3 +24,11 @@ it('autolinks plain URLs and renders unfinished streaming code fences', () => {
   expect(renderMarkdown('See https://vite.dev/config/')).toContain('href="https://vite.dev/config/"');
   expect(renderMarkdown('```ts\nconst running =')).toContain('<pre><code class="language-ts">const running =');
 });
+
+it('marks changed Markdown blocks while preserving formatting and neutral context', () => {
+  const html = renderMarkdown('Unchanged\n\n## Changed\n\n- keep\n- **edit**', new Set([3, 6]));
+  expect(html).toContain('<p>Unchanged</p>');
+  expect(html).toContain('<h2 class="markdown-change">Changed</h2>');
+  expect(html).toContain('<li>keep</li>');
+  expect(html).toContain('<li class="markdown-change"><strong>edit</strong></li>');
+});

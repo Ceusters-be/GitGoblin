@@ -281,12 +281,12 @@ defineExpose({ openAll, closePicker: () => (pickerOpen.value = false) });
         aria-haspopup="dialog"
         @click="openAll()"
       >
-        <MessageSquare :size="14" />All chats
+        <MessageSquare :size="14" />Chat history
       </AppButton>
       <Teleport to="body">
         <AppDialog
           v-if="pickerOpen"
-          :title="openOnly ? 'Open chat tabs' : 'All chats'"
+          :title="openOnly ? 'Open chat tabs' : 'Chat history'"
           @close="pickerOpen = false"
           ><section
             class="chat-picker [width:min(660px,_calc(100vw_-_32px))] [max-height:min(720px,_calc(100vh_-_64px))] p-[20px] border-[1px] border-solid border-[var(--line)] rounded-[12px] text-[var(--fg)] bg-[var(--panel)] shadow-[0_24px_80px_#0008] flex flex-col gap-[14px]"
@@ -297,7 +297,7 @@ defineExpose({ openAll, closePicker: () => (pickerOpen.value = false) });
                 class="[:where(&)]:m-0 [:where(&)]:text-[18px] [:where(&)]:font-semibold"
                 id="chat-picker-title"
               >
-                {{ openOnly ? "Open chat tabs" : "All chats" }}
+                {{ openOnly ? "Open chat tabs" : "Chat history" }}
               </h2>
               <AppButton
                 size="icon"

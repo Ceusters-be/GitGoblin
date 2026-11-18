@@ -2,8 +2,8 @@
 import { computed, ref } from "vue";
 import { renderMarkdown } from "~/lib/markdown";
 import { desktop, invoke } from "~/lib/native";
-const props = defineProps<{ text: string; streaming?: boolean }>();
-const html = computed(() => renderMarkdown(props.text));
+const props = defineProps<{ text: string; streaming?: boolean; changedLines?: Set<number> }>();
+const html = computed(() => renderMarkdown(props.text, props.changedLines));
 const linkError = ref("");
 async function openLink(event: MouseEvent) {
   const anchor = (event.target as Element).closest("a[href]");

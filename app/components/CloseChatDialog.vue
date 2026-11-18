@@ -84,7 +84,7 @@ async function submit() {
           id="close-chat-description"
         >
           You’re closing <strong>{{ thread.title }}</strong
-          >. You can reopen it from All chats.
+          >. You can reopen it from Chat history.
         </p>
         <p
           v-if="alreadySettled"

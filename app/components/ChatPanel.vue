@@ -995,7 +995,7 @@ defineExpose({
           class="panel-empty flex flex-col items-center justify-center text-center gap-[16px] py-[35px] px-[24px] text-[var(--muted)] flex-1 [&_p]:text-[12px] [&_p]:leading-[1.8] [&_p]:max-w-[300px] [&_h3]:text-[var(--fg-secondary)]"
         >
           <MessageSquare :size="26" />
-          <p>Open a chat from All chats, or start a new conversation.</p>
+          <p>Open a chat from Chat history, or start a new conversation.</p>
         </div>
         <AppButton v-if="turns.length > visibleTurnCount" @click="showEarlierTurns">
           Show earlier messages ({{ turns.length - visibleTurnCount }})

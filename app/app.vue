@@ -745,11 +745,6 @@ const repoThreads = computed(() =>
   ),
 );
 const activeAgents = computed(() => repoThreads.value.filter(isThreadRunning));
-const allActiveAgents = computed(() =>
-  threads.value.filter(
-    (thread) => !thread.deletedAt && isThreadRunning(thread),
-  ),
-);
 const additions = computed(
   () =>
     diff.value.text
@@ -1448,7 +1443,7 @@ onUnmounted(() => {
           <span class="text-[11px] text-[var(--muted)] tabular-nums whitespace-nowrap" :title="`GitGoblin version ${appVersion}`">v{{ appVersion }}</span>
           <span class="shrink-0 whitespace-nowrap rounded-[4px] border border-[var(--line)] bg-[var(--raised)] ml-[5px] px-[5px] py-[2px] text-[9px] font-normal uppercase tracking-[1.4px] text-[var(--muted)]">Early access</span>
           <nav
-            class="workspace-modes grid w-[164px] shrink-0 grid-cols-[70px_minmax(0,1fr)] gap-[4px] mt-0 mr-0 mb-0 ml-[12px] p-[3px] bg-[var(--bg)] border-solid border-[var(--line)] [&>button]:min-w-0 [&>button]:justify-center [&>button]:gap-[4px] [&>button]:py-0 [&>button]:px-[7px] [&>button]:text-[var(--muted)] [&>button]:rounded-[6px] [&>button]:text-[12px] [&>button[aria-pressed='true']]:bg-[var(--selection)] [&_.mode-running]:text-[var(--success)] [&_.mode-running]:flex h-[32px] border-0 rounded-[7px] [&>button[aria-pressed='true']]:text-[var(--accent)] [&>button[aria-pressed='true']]:shadow-none"
+            class="workspace-modes grid w-[164px] shrink-0 grid-cols-[70px_minmax(0,1fr)] gap-[4px] mt-0 mr-0 mb-0 ml-[12px] p-[3px] bg-[var(--bg)] border-solid border-[var(--line)] [&>button]:min-w-0 [&>button]:justify-center [&>button]:gap-[4px] [&>button]:py-0 [&>button]:px-[7px] [&>button]:text-[var(--muted)] [&>button]:rounded-[6px] [&>button]:text-[12px] [&>button[aria-pressed='true']]:bg-[var(--selection)] h-[32px] border-0 rounded-[7px] [&>button[aria-pressed='true']]:text-[var(--accent)] [&>button[aria-pressed='true']]:shadow-none"
             aria-label="Workspace mode"
           >
             <AppButton
@@ -1461,21 +1456,38 @@ onUnmounted(() => {
               :aria-pressed="chatVisible"
               @click="workspaceMode = 'chat'"
             >
-              <span
-                v-if="allActiveAgents.length"
-                class="mode-running"
-                role="status"
-                :aria-label="`${allActiveAgents.length} agent tasks running`"
-                :title="`${allActiveAgents.length} agent tasks running`"
-                ><LoaderCircle :size="16" class="spin animate-spin"
-              /></span>
-              <MessageSquare v-else :size="16" />Chat
+              <MessageSquare :size="16" />Chat
             </AppButton>
           </nav>
         </div>
+        <div
+          v-show="!chatVisible"
+          class="titlebar-context flex items-center gap-[8px] max-w-[35%] min-w-0 h-full py-0 px-[12px] text-[11px] text-[var(--muted)] whitespace-nowrap [&_strong]:text-[var(--fg-secondary)] [&_strong]:font-medium [&_strong]:overflow-hidden [&_strong]:text-ellipsis [&>span:last-child]:overflow-hidden [&>span:last-child]:text-ellipsis"
+        >
+          <template v-if="!chatVisible">
+            <PopoverTrigger as-child
+              ><AppButton
+                class="repository-switch min-w-0 h-[32px] py-0 px-[8px] text-[var(--fg-secondary)] [&>strong]:text-[11px]"
+                aria-label="Switch repository"
+                :disabled="busy"
+                :title="repo || 'Switch repository'"
+              >
+                <FolderGit2 :size="15" /><strong>{{
+                  snapshot ? repoName : "Repositories"
+                }}</strong
+                ><ChevronDown :size="12" /></AppButton
+            ></PopoverTrigger>
+            <template v-if="snapshot"
+              ><span class="context-divider text-[var(--muted)]">/</span
+              ><GitBranch :size="13" /><span :title="snapshot.branch">{{
+                snapshot.branch
+              }}</span></template
+            >
+          </template>
+        </div>
         <nav
           v-if="!chatVisible && favorites.length"
-          class="favorite-tabs flex items-center gap-[4px] min-w-0 max-w-[35%] ml-[12px] overflow-x-auto [scrollbar-width:thin] [&_button]:shrink-0 [&_button]:h-[32px] [&_button]:max-w-[160px] [&_button]:py-0 [&_button]:px-[10px] [&_button]:rounded-[5px] [&_button]:text-[11px] [&_button]:text-[var(--fg-secondary)] [&_button_span]:overflow-hidden [&_button_span]:text-ellipsis [&_button_span]:whitespace-nowrap [&_button_svg]:shrink-0 [&_button_svg]:text-[var(--warning)] [&_button[aria-current]]:text-[var(--fg)] [&_button[aria-current]]:bg-[var(--hover)] [&_button[aria-current]]:[border-color:var(--line)]"
+          class="favorite-tabs flex items-center gap-[4px] min-w-0 max-w-[35%] overflow-x-auto [scrollbar-width:thin] [&_button]:shrink-0 [&_button]:h-[32px] [&_button]:max-w-[160px] [&_button]:py-0 [&_button]:px-[10px] [&_button]:rounded-[5px] [&_button]:text-[11px] [&_button]:text-[var(--fg-secondary)] [&_button_span]:overflow-hidden [&_button_span]:text-ellipsis [&_button_span]:whitespace-nowrap [&_button_svg]:shrink-0 [&_button_svg]:text-[var(--warning)] [&_button[aria-current]]:text-[var(--fg)] [&_button[aria-current]]:bg-[var(--hover)] [&_button[aria-current]]:[border-color:var(--line)]"
           aria-label="Favorite repositories"
         >
           <AppButton
@@ -1499,31 +1511,7 @@ onUnmounted(() => {
             }}</span>
           </AppButton>
         </nav>
-        <div
-          v-show="!chatVisible"
-          class="titlebar-context flex items-center gap-[8px] flex-1 min-w-0 h-full py-0 px-[12px] text-[11px] text-[var(--muted)] whitespace-nowrap [&_strong]:text-[var(--fg-secondary)] [&_strong]:font-medium [&_strong]:overflow-hidden [&_strong]:text-ellipsis [&>span:last-child]:overflow-hidden [&>span:last-child]:text-ellipsis"
-        >
-          <template v-if="!chatVisible">
-            <PopoverTrigger as-child
-              ><AppButton
-                class="repository-switch min-w-0 max-w-[55%] h-[32px] py-0 px-[8px] text-[var(--fg-secondary)] [&>strong]:text-[11px]"
-                aria-label="Switch repository"
-                :disabled="busy"
-                :title="repo || 'Switch repository'"
-              >
-                <FolderGit2 :size="15" /><strong>{{
-                  snapshot ? repoName : "Repositories"
-                }}</strong
-                ><ChevronDown :size="12" /></AppButton
-            ></PopoverTrigger>
-            <template v-if="snapshot"
-              ><span class="context-divider text-[var(--muted)]">/</span
-              ><GitBranch :size="13" /><span :title="snapshot.branch">{{
-                snapshot.branch
-              }}</span></template
-            >
-          </template>
-        </div>
+        <div v-if="!chatVisible" class="flex-1" aria-hidden="true" />
         <ChatTabs
           v-show="chatVisible"
           ref="chatNavigation"

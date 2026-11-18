@@ -63,12 +63,11 @@ pub(super) fn diff(repo: &Path, req: &Request) -> Result<Value, String> {
             }
         }
     };
-    let original = if mime != "text/markdown" || modified.is_none() {
-        before.as_deref().map(|rev| blob(repo, rev, old_path)).transpose()?.flatten()
-    } else { None };
+    let original = before.as_deref().map(|rev| blob(repo, rev, old_path)).transpose()?.flatten();
     if mime == "text/markdown" {
-        let data = modified.or(original).ok_or("File unavailable for preview.")?;
-        return String::from_utf8(data).map(Value::String).map_err(|_| "Markdown preview requires UTF-8 text.".into());
+        let decode = |bytes: Option<Vec<u8>>| bytes.map(String::from_utf8).transpose()
+            .map_err(|_| "Markdown preview requires UTF-8 text.");
+        return Ok(json!({ "original": decode(original)?, "modified": decode(modified)? }));
     }
     Ok(json!({ "mime": mime, "original": original, "modified": modified }))
 }
@@ -88,11 +87,11 @@ mod tests {
         git(&repo, &["add", "notes.md"]).unwrap();
         fs::write(repo.join(&req.path), "# Working").unwrap();
         req.mode = "staged".into();
-        assert_eq!(diff(&repo, &req).unwrap(), "# Staged");
+        assert_eq!(diff(&repo, &req).unwrap(), json!({"original": null, "modified": "# Staged"}));
         req.mode = "working".into();
-        assert_eq!(diff(&repo, &req).unwrap(), "# Working");
+        assert_eq!(diff(&repo, &req).unwrap(), json!({"original": "# Staged", "modified": "# Working"}));
         fs::remove_file(repo.join(&req.path)).unwrap();
-        assert_eq!(diff(&repo, &req).unwrap(), "# Staged");
+        assert_eq!(diff(&repo, &req).unwrap(), json!({"original": "# Staged", "modified": null}));
     }
 
     #[test]
