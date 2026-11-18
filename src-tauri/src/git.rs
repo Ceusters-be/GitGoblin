@@ -1449,7 +1449,9 @@ mod tests {
         assert_eq!(rename("feature/old", "existing")["kind"], "warning");
         assert_eq!(oid(remote.path(), "refs/heads/feature/old").unwrap(), published);
 
-        git(repo, &["push", remote.path().to_str().unwrap(), "HEAD:refs/heads/feature/old"]).unwrap();
+        // Advance the remote independently so the client's tracking ref stays stale.
+        git(remote.path(), &["fetch", repo.to_str().unwrap(), "HEAD:refs/heads/feature/old"]).unwrap();
+        assert_eq!(oid(repo, "refs/remotes/origin/feature/old").unwrap(), published);
         assert_eq!(rename("existing", "stale")["kind"], "warning");
         assert_eq!(oid(remote.path(), "refs/heads/feature/old").unwrap(), local);
         assert!(oid(remote.path(), "refs/heads/stale").is_err());
