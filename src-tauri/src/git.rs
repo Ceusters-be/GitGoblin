@@ -19,6 +19,21 @@ pub struct BulkFile {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct PushDestination {
+    branch: String,
+    remote: String,
+    remote_branch: String,
+    set_upstream: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RenameUpstream {
+    remote: String,
+    r#ref: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Request {
     pub repo: String,
     pub action: String,
@@ -36,6 +51,10 @@ pub struct Request {
     pub whole_file: bool,
     #[serde(default)]
     pub push_tags: bool,
+    #[serde(default)]
+    pub push_destination: Option<PushDestination>,
+    #[serde(default)]
+    pub rename_upstream: Option<RenameUpstream>,
     #[serde(default)]
     pub offset: usize,
     #[serde(default)]
@@ -132,6 +151,85 @@ fn branch(repo: &Path, value: &str) -> Result<(), String> {
         return Err("Invalid branch name.".into());
     }
     git(repo, &["check-ref-format", "--branch", value]).map(|_| ())
+}
+fn rename_branch(repo: &Path, req: &Request) -> Result<Value, String> {
+    let old = &req.target;
+    let new = &req.text;
+    let source = format!("refs/heads/{old}");
+    let target = format!("refs/heads/{new}");
+    if old == new {
+        return Err("Enter a different branch name.".into());
+    }
+    git(repo, &["check-ref-format", &source])?;
+    git(repo, &["check-ref-format", &target])?;
+    branch(repo, new)?;
+    git(repo, &["show-ref", "--verify", "--", &source])?;
+
+    let upstream = if let Some(expected) = &req.rename_upstream {
+        let refs = git(repo, &[
+            "for-each-ref",
+            "--format=%(refname)%09%(upstream)%09%(upstream:remotename)%09%(upstream:remoteref)",
+            &source,
+        ])?;
+        let tracking = refs.lines().find_map(|line| {
+            let mut fields = line.split('\t');
+            let name = fields.next()?;
+            let tracking = fields.next()?;
+            let remote = fields.next()?;
+            let remote_ref = fields.next()?;
+            (name == source && remote == expected.remote && remote_ref == expected.r#ref)
+                .then_some(tracking)
+        }).ok_or("The branch's upstream changed. Reopen the rename dialog.")?;
+        if expected.remote == "." || !expected.r#ref.starts_with("refs/heads/") {
+            return Err("Choose a branch with a remote upstream.".into());
+        }
+        if expected.r#ref == target {
+            None
+        } else {
+            let tip = oid(repo, tracking)
+                .map_err(|_| "Fetch the upstream branch before renaming it.".to_string())?;
+            Some((expected, tip))
+        }
+    } else {
+        None
+    };
+    git(repo, &["branch", "-m", "--", old, new])?;
+    let message = format!("Renamed {old} to {new}.");
+    let Some((upstream, tip)) = upstream else {
+        return Ok(json!({ "kind": "success", "message": message }));
+    };
+    match rename_remote_branch(repo, upstream, &target, &tip) {
+        Ok(()) => {
+            let config = format!("branch.{new}.merge");
+            if let Err(error) = git(repo, &["config", "--local", &config, &target]) {
+                return Ok(json!({ "kind": "warning", "message":
+                    format!("{message} The remote branch was renamed, but tracking could not be updated.\n{error}") }));
+            }
+            Ok(json!({ "kind": "success", "message": format!("{message} Renamed the upstream on {}.", upstream.remote) }))
+        }
+        Err(error) => Ok(json!({ "kind": "warning", "message":
+            format!("{message} Git did not confirm the upstream rename.\n{error}") })),
+    }
+}
+fn rename_remote_branch(repo: &Path, upstream: &RenameUpstream, target: &str, tip: &str) -> Result<(), String> {
+    let urls = git(repo, &["remote", "get-url", "--push", "--all", "--", &upstream.remote])?;
+    let mut urls = urls.lines();
+    let url = urls.next().ok_or("The remote has no push URL.")?;
+    if urls.next().is_some() {
+        return Err("Renaming an upstream requires a remote with one push URL.".into());
+    }
+    if !git(repo, &["ls-remote", "--refs", "--", url, target])?.trim().is_empty() {
+        return Err("A branch with the new name already exists on the remote.".into());
+    }
+    let old = &upstream.r#ref;
+    // Move the fetched upstream tip, which may differ from the local branch tip.
+    git(repo, &[
+        "push", "--atomic", "--no-follow-tags",
+        &format!("--force-with-lease={old}:{tip}"),
+        &format!("--force-with-lease={target}:"),
+        "--", &upstream.remote, &format!("{tip}:{target}"), &format!(":{old}"),
+    ])?;
+    Ok(())
 }
 fn relative(value: &str) -> Result<(), String> {
     if value.is_empty()
@@ -357,7 +455,7 @@ pub fn execute_checked(req: Request, check: impl Fn() -> Result<(), String>) -> 
                 &repo,
                 &[
                     "for-each-ref",
-                    "--format=%(refname)%09%(objectname)%09%(HEAD)%09%(upstream:short)%09%(upstream:track,nobracket)",
+                    "--format=%(refname)%09%(objectname)%09%(HEAD)%09%(upstream:short)%09%(upstream:track,nobracket)%09%(upstream:remotename)%09%(upstream:remoteref)",
                     "refs/heads",
                     "refs/remotes",
                     "refs/tags",
@@ -379,9 +477,10 @@ pub fn execute_checked(req: Request, check: impl Fn() -> Result<(), String>) -> 
                 .lines()
                 .filter_map(|line| {
                     let f: Vec<_> = line.split('\t').collect();
-                    if f.len() < 5 { return None; }
+                    if f.len() < 7 { return None; }
                     let count = |prefix: &str| f[4].split(',').find_map(|part| part.trim().strip_prefix(prefix)?.parse::<usize>().ok()).unwrap_or(0);
                     Some(json!({"name":f[0],"id":f[1],"current":f[2]=="*","upstream":f[3],
+                        "upstreamRemote":f[5],"upstreamRemoteRef":f[6],
                         "ahead":count("ahead "),"behind":count("behind "),"upstreamGone":f[4]=="gone"}))
                 })
                 .collect();
@@ -546,15 +645,36 @@ pub fn execute_checked(req: Request, check: impl Fn() -> Result<(), String>) -> 
         "fetch" => json!(git(&repo, &["fetch", "--all", "--prune"])?),
         "pull" => json!(git(&repo, &["pull", "--ff-only", "--autostash"])?),
         "push" => {
-            let args = if req.mode == "force" {
+            let mut args = if req.mode == "force" {
                 vec!["push", "--force-with-lease"]
             } else {
                 vec!["push"]
             };
+            let refspec;
+            let mut tags = vec!["push", "--no-follow-tags", "--tags"];
+            if let Some(destination) = &req.push_destination {
+                let remotes = git(&repo, &["remote"])?;
+                if !remotes.lines().any(|name| name == destination.remote) {
+                    return Err("Choose a configured remote.".into());
+                }
+                let source = format!("refs/heads/{}", destination.branch);
+                let target = format!("refs/heads/{}", destination.remote_branch);
+                git(&repo, &["check-ref-format", &source])
+                    .and_then(|_| git(&repo, &["show-ref", "--verify", "--", &source]))
+                    .map_err(|_| "Choose an existing local branch.".to_string())?;
+                git(&repo, &["check-ref-format", &target])
+                    .map_err(|_| "Enter a valid remote branch name.".to_string())?;
+                refspec = format!("{source}:{target}");
+                if destination.set_upstream {
+                    args.push("--set-upstream");
+                }
+                args.extend(["--", &destination.remote, &refspec]);
+                tags.extend(["--", &destination.remote]);
+            }
             let mut output = git(&repo, &args)?;
             if req.push_tags {
                 // Keep branch force-push settings away from tags.
-                output.push_str(&git(&repo, &["push", "--no-follow-tags", "--tags"])
+                output.push_str(&git(&repo, &tags)
                     .map_err(|error| format!("Branch pushed, but pushing tags failed: {error}"))?);
             }
             json!(output)
@@ -591,6 +711,7 @@ pub fn execute_checked(req: Request, check: impl Fn() -> Result<(), String>) -> 
             )?;
             json!(git(&repo, &["switch", "-c", &req.text, &target])?)
         }
+        "branch-rename" => rename_branch(&repo, &req)?,
         "branch-delete" => {
             branch(&repo, &req.target)?;
             let flag = if req.mode == "force" { "-D" } else { "-d" };
@@ -1010,6 +1131,8 @@ mod tests {
             fingerprint: String::new(),
             whole_file: false,
             push_tags: false,
+            push_destination: None,
+            rename_upstream: None,
             offset: 0,
             limit: None,
             files: Vec::new(),
@@ -1108,6 +1231,52 @@ mod tests {
         assert!(push("tag-push", "missing", "origin").is_err());
         assert!(push("tag-push", "v1:refs/heads/main", "origin").is_err());
         assert!(push("tag-push", "v1", "--all").is_err());
+    }
+
+    #[test]
+    fn push_publishes_a_selected_branch_and_optionally_sets_its_upstream() {
+        let dir = fixture();
+        let repo = dir.path();
+        let origin = tempfile::tempdir().unwrap();
+        let other = tempfile::tempdir().unwrap();
+        for (name, remote) in [("origin", &origin), ("other", &other)] {
+            git(remote.path(), &["init", "--bare"]).unwrap();
+            git(repo, &["remote", "add", name, remote.path().to_str().unwrap()]).unwrap();
+        }
+        git(repo, &["switch", "-c", "main"]).unwrap();
+        git(repo, &["commit", "--allow-empty", "-m", "initial"]).unwrap();
+        git(repo, &["push", "-u", "origin", "main"]).unwrap();
+        git(repo, &["branch", "feature/nested"]).unwrap();
+        git(repo, &["tag", "v1"]).unwrap();
+
+        let push = |remote_branch: &str, set_upstream: bool, push_tags: bool| {
+            let mut req = request(repo, "push");
+            req.push_destination = Some(PushDestination {
+                branch: "feature/nested".into(),
+                remote: "other".into(),
+                remote_branch: remote_branch.into(),
+                set_upstream,
+            });
+            req.push_tags = push_tags;
+            execute(req)
+        };
+        assert!(push("invalid:ref", true, false).is_err());
+        push("feature/nested", false, false).unwrap();
+        let feature = oid(repo, "refs/heads/feature/nested").unwrap();
+        assert_eq!(oid(other.path(), "refs/heads/feature/nested").unwrap(), feature);
+        assert!(git(repo, &["config", "--get", "branch.feature/nested.remote"]).is_err());
+        assert!(oid(other.path(), "refs/tags/v1").is_err());
+
+        push("review/nested", true, true).unwrap();
+        assert_eq!(oid(other.path(), "refs/heads/review/nested").unwrap(), feature);
+        assert_eq!(oid(other.path(), "refs/tags/v1").unwrap(), feature);
+        assert!(oid(origin.path(), "refs/tags/v1").is_err());
+        let snapshot = execute(request(repo, "snapshot")).unwrap();
+        assert_eq!(snapshot["branch"], "main");
+        let refs = snapshot["refs"].as_array().unwrap();
+        let published = refs.iter().find(|entry| entry["name"] == "refs/heads/feature/nested").unwrap();
+        assert_eq!(published["upstreamRemote"], "other");
+        assert_eq!(published["upstreamRemoteRef"], "refs/heads/review/nested");
     }
 
     #[test]
@@ -1217,6 +1386,80 @@ mod tests {
         create("from-initial", &initial).unwrap();
         assert_eq!(git(repo, &["branch", "--show-current"]).unwrap().trim(), "from-initial");
         assert_eq!(oid(repo, "HEAD").unwrap(), initial);
+    }
+
+    #[test]
+    fn branch_rename_preserves_worktree_and_upstream_and_refuses_existing_names() {
+        let dir = fixture();
+        let repo = dir.path();
+        let remote = tempfile::tempdir().unwrap();
+        git(remote.path(), &["init", "--bare"]).unwrap();
+        git(repo, &["remote", "add", "origin", remote.path().to_str().unwrap()]).unwrap();
+        git(repo, &["switch", "-c", "feature/old"]).unwrap();
+        fs::write(repo.join("file.txt"), "initial\n").unwrap();
+        git(repo, &["add", "."]).unwrap();
+        git(repo, &["commit", "-m", "initial"]).unwrap();
+        git(repo, &["push", "-u", "origin", "feature/old"]).unwrap();
+        git(repo, &["branch", "existing"]).unwrap();
+        fs::write(repo.join("file.txt"), "local edits\n").unwrap();
+        let tip = oid(repo, "HEAD").unwrap();
+
+        let rename = |new: &str| {
+            let mut req = request(repo, "branch-rename");
+            req.target = "feature/old".into();
+            req.text = new.into();
+            execute(req)
+        };
+        assert!(rename("existing").is_err());
+        assert!(rename("@{-1}").is_err());
+        assert_eq!(rename("feature/new").unwrap()["kind"], "success");
+        assert_eq!(git(repo, &["branch", "--show-current"]).unwrap().trim(), "feature/new");
+        assert_eq!(git(repo, &["rev-parse", "--symbolic-full-name", "@{upstream}"]).unwrap().trim(), "refs/remotes/origin/feature/old");
+        assert_eq!(oid(repo, "HEAD").unwrap(), tip);
+        assert_eq!(fs::read_to_string(repo.join("file.txt")).unwrap(), "local edits\n");
+        assert!(oid(repo, "refs/heads/feature/old").is_err());
+        assert_eq!(oid(remote.path(), "refs/heads/feature/old").unwrap(), tip);
+    }
+
+    #[test]
+    fn branch_rename_can_move_the_fetched_upstream_without_pushing_local_commits() {
+        let dir = fixture();
+        let repo = dir.path();
+        let remote = tempfile::tempdir().unwrap();
+        git(remote.path(), &["init", "--bare"]).unwrap();
+        git(repo, &["remote", "add", "origin", remote.path().to_str().unwrap()]).unwrap();
+        git(repo, &["switch", "-c", "feature/old"]).unwrap();
+        git(repo, &["commit", "--allow-empty", "-m", "published"]).unwrap();
+        git(repo, &["push", "-u", "origin", "feature/old"]).unwrap();
+        let published = oid(repo, "HEAD").unwrap();
+        git(repo, &["commit", "--allow-empty", "-m", "local only"]).unwrap();
+        let local = oid(repo, "HEAD").unwrap();
+
+        let rename = |old: &str, new: &str| {
+            let mut req = request(repo, "branch-rename");
+            req.target = old.into();
+            req.text = new.into();
+            req.rename_upstream = Some(RenameUpstream {
+                remote: "origin".into(),
+                r#ref: "refs/heads/feature/old".into(),
+            });
+            execute(req).unwrap()
+        };
+        git(remote.path(), &["branch", "existing", &published]).unwrap();
+        assert_eq!(rename("feature/old", "existing")["kind"], "warning");
+        assert_eq!(oid(remote.path(), "refs/heads/feature/old").unwrap(), published);
+
+        git(repo, &["push", remote.path().to_str().unwrap(), "HEAD:refs/heads/feature/old"]).unwrap();
+        assert_eq!(rename("existing", "stale")["kind"], "warning");
+        assert_eq!(oid(remote.path(), "refs/heads/feature/old").unwrap(), local);
+        assert!(oid(remote.path(), "refs/heads/stale").is_err());
+        git(remote.path(), &["update-ref", "refs/heads/feature/old", &published]).unwrap();
+
+        assert_eq!(rename("stale", "feature/new")["kind"], "success");
+        assert!(oid(remote.path(), "refs/heads/feature/old").is_err());
+        assert_eq!(oid(remote.path(), "refs/heads/feature/new").unwrap(), published);
+        assert_eq!(oid(repo, "HEAD").unwrap(), local);
+        assert_eq!(git(repo, &["rev-parse", "--symbolic-full-name", "@{upstream}"]).unwrap().trim(), "refs/remotes/origin/feature/new");
     }
 
     #[test]

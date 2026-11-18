@@ -1,5 +1,6 @@
 export interface ContextMenuItem {
   label: string;
+  shortcut?: string;
   disabled?: boolean;
   disabledReason?: string;
   separatorBefore?: boolean;

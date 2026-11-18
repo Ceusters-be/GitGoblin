@@ -1,3 +1,7 @@
+export interface WorkspaceNotice {
+  kind: "success" | "error" | "warning" | "info";
+  message: string;
+}
 export interface FileStatus {
   path: string;
   oldPath?: string;
@@ -10,6 +14,8 @@ export interface GitRef {
   id: string;
   current: boolean;
   upstream: string;
+  upstreamRemote?: string;
+  upstreamRemoteRef?: string;
   ahead?: number;
   behind?: number;
   upstreamGone?: boolean;
@@ -50,6 +56,13 @@ export interface GitRequest {
   fingerprint?: string;
   wholeFile?: boolean;
   pushTags?: boolean;
+  renameUpstream?: { remote: string; ref: string };
+  pushDestination?: {
+    branch: string;
+    remote: string;
+    remoteBranch: string;
+    setUpstream: boolean;
+  };
   offset?: number;
   limit?: number;
   files?: { path: string; fingerprint?: string }[];

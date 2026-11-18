@@ -27,7 +27,6 @@ import {
   Settings2,
   X,
   Check,
-  ArrowUpRight,
   FileCode2,
   Layers,
   List,
@@ -40,6 +39,8 @@ import {
   ArrowUp,
   ArrowDown,
   AlertTriangle,
+  CircleX,
+  Info,
   ExternalLink,
   Command,
   MessageSquare,
@@ -70,6 +71,7 @@ import type {
   T3Project,
   GitRequest,
   GitRef,
+  WorkspaceNotice,
 } from "~/lib/types";
 const w = useWorkbench();
 const { theme, error: themeError, setTheme } = useTheme();
@@ -100,7 +102,38 @@ const {
   selectedCommit,
   historyDiff,
   reflog,
+  reflogLoading,
 } = w;
+const toast = computed<(WorkspaceNotice & { pending?: boolean }) | undefined>(() => {
+  if (error.value) return { kind: "error", message: error.value };
+  if (busy.value) {
+    return {
+      kind: "info",
+      message: notice.value?.kind === "info" ? notice.value.message : "Working…",
+      pending: true,
+    };
+  }
+  return notice.value;
+});
+const toastIcons = { success: Check, error: CircleX, warning: AlertTriangle, info: Info };
+const toastColors = {
+  success: "bg-[var(--success-bg)] text-[var(--success)]",
+  error: "bg-[var(--danger-bg)] text-[var(--danger)]",
+  warning: "[--toast-warning:#f0a567] [[data-theme=daylight]_&]:[--toast-warning:#b45309] bg-[color-mix(in_srgb,var(--toast-warning)_14%,var(--panel))] text-[var(--toast-warning)]",
+  info: "bg-[var(--panel)] text-[var(--fg-secondary)]",
+};
+const toastHovered = ref(false), toastFocused = ref(false);
+function dismissToast() {
+  toastHovered.value = false;
+  toastFocused.value = false;
+  error.value = "";
+  notice.value = undefined;
+}
+watch([toast, toastHovered, toastFocused], ([current, hovered, focused], _, onCleanup) => {
+  if (!current || current.pending || hovered || focused) return;
+  const timeout = setTimeout(dismissToast, 5000);
+  onCleanup(() => clearTimeout(timeout));
+});
 const filesAsTree = ref(true);
 const preferredSidebarWidth = ref(defaultSidebarWidth);
 const sidebarViewport = ref(1280);
@@ -240,6 +273,19 @@ async function switchBranch(branch: GitRef) {
     /* The workbench displays Git's error, including local-change protection. */
   }
 }
+const branchRenameInput = ref<HTMLInputElement>();
+const branchRenameSource = ref<GitRef>();
+let branchRenameRepo = "";
+async function startBranchRename(branch: GitRef) {
+  if (!branch.name.startsWith("refs/heads/") || busy.value || example.value) return;
+  const name = branch.name.slice("refs/heads/".length);
+  branchRenameRepo = repo.value;
+  branchRenameSource.value = branch;
+  ask("branch-rename", { target: name, text: name });
+  await nextTick();
+  branchRenameInput.value?.focus();
+  branchRenameInput.value?.select();
+}
 function filterBranch(branch: GitRef, filter: "only" | "exclude") {
   view.value = "history";
   const active = w.historyBranch.value;
@@ -251,6 +297,9 @@ function filterBranch(branch: GitRef, filter: "only" | "exclude") {
 function branchMenu(event: MouseEvent | KeyboardEvent, branch: GitRef) {
   const local = branch.name.startsWith("refs/heads/");
   const target = local ? branch.name.replace("refs/heads/", "") : branch.name;
+  const branchName = branch.name.replace(/^refs\/(heads|remotes)\//, "");
+  const currentBranch = localBranches.value.find((ref) => ref.current)?.name.slice("refs/heads/".length);
+  const rebaseSource = currentBranch ? `'${currentBranch}'` : "detached HEAD";
   const items = [
     {
       label: "Switch to branch",
@@ -280,7 +329,7 @@ function branchMenu(event: MouseEvent | KeyboardEvent, branch: GitRef) {
       separatorBefore: true,
     },
     actionItem(
-      "Rebase current branch onto this…",
+      `Rebase ${rebaseSource} on '${branchName}'…`,
       "rebase-onto",
       { target },
       branch.current,
@@ -291,6 +340,12 @@ function branchMenu(event: MouseEvent | KeyboardEvent, branch: GitRef) {
     },
     ...(local
       ? [
+          {
+            label: "Rename branch…",
+            shortcut: "F2",
+            disabled: busy.value || example.value,
+            run: () => startBranchRename(branch),
+          },
           {
             ...actionItem(
               "Delete branch…",
@@ -303,10 +358,7 @@ function branchMenu(event: MouseEvent | KeyboardEvent, branch: GitRef) {
         ]
       : []),
     {
-      ...copyItem(
-        "Copy branch name",
-        branch.name.replace(/^refs\/(heads|remotes)\//, ""),
-      ),
+      ...copyItem("Copy branch name", branchName),
       separatorBefore: true,
     },
     copyItem("Copy commit hash", branch.id),
@@ -662,6 +714,17 @@ const remoteBranches = computed(
 const localBranchTree = computed(() =>
   branchTree(localBranches.value, "refs/heads/"),
 );
+const pushRemotes = computed(() => {
+  const names = snapshot.value?.remotes.split("\n").filter(Boolean)
+    .map((line) => line.split("\t")[0]!) ?? [];
+  return [...new Set(names)].map((name) => ({ value: name, label: name }));
+});
+const pushBranches = computed(() =>
+  localBranches.value.map((branch) => {
+    const name = branch.name.slice("refs/heads/".length);
+    return { value: name, label: name };
+  }),
+);
 const remoteBranchTree = computed(() =>
   branchTree(remoteBranches.value, "refs/remotes/"),
 );
@@ -777,6 +840,10 @@ const definitions: Record<
     description:
       "Deletes a local branch. Enable force deletion to delete an unmerged branch. Commits unique to it may be lost. Remote branches are unchanged.",
     fields: [{ key: "target", label: "Branch" }],
+  },
+  "branch-rename": {
+    title: "Rename branch",
+    description: "Rename a local branch.",
   },
   "tag-create": {
     title: "Create tag",
@@ -897,7 +964,7 @@ const definitions: Record<
   },
   push: {
     title: "Push branch",
-    description: "Publish commits to the configured upstream.",
+    description: "Publish commits to a branch on a remote.",
   },
   continue: {
     title: "Continue operation",
@@ -921,6 +988,52 @@ const definitions: Record<
     fields: [{ key: "text", label: "Commit message" }],
   },
 };
+function selectPushBranch(name: string) {
+  const branch = localBranches.value.find((ref) => ref.name === `refs/heads/${name}`);
+  const upstream = pushRemotes.value.find(({ value }) => value === branch?.upstreamRemote);
+  values.value.branch = name;
+  values.value.remote = upstream?.value
+    ?? pushRemotes.value.find(({ value }) => value === "origin")?.value
+    ?? pushRemotes.value[0]?.value
+    ?? "";
+  values.value.remoteBranch = upstream
+    ? branch?.upstreamRemoteRef?.replace(/^refs\/heads\//, "") || name
+    : name;
+  values.value.setUpstream = upstream ? "" : "yes";
+}
+const showPushTracking = computed(() => {
+  const { branch, remote, remoteBranch } = values.value;
+  const destination = remoteBranch?.trim();
+  if (!branch || !remote || !destination) return false;
+  const selected = localBranches.value.find((ref) => ref.name === `refs/heads/${branch}`);
+  return !!selected && (
+    selected.upstreamRemote !== remote ||
+    selected.upstreamRemoteRef !== `refs/heads/${destination}`
+  );
+});
+const pushDestination = computed<GitRequest["pushDestination"]>(() => {
+  const { branch, remote, remoteBranch, setUpstream } = values.value;
+  const destination = remoteBranch?.trim();
+  if (!branch || !remote || !destination) return;
+  if (!pushBranches.value.some(({ value }) => value === branch) ||
+      !pushRemotes.value.some(({ value }) => value === remote)) return;
+  return {
+    branch,
+    remote,
+    remoteBranch: destination,
+    setUpstream: showPushTracking.value && setUpstream === "yes",
+  };
+});
+const branchRenameUpstream = computed(() => {
+  const branch = branchRenameSource.value;
+  if (!branch?.upstreamRemote || branch.upstreamRemote === "." || branch.upstreamGone ||
+      !branch.upstreamRemoteRef?.startsWith("refs/heads/")) return;
+  return { remote: branch.upstreamRemote, ref: branch.upstreamRemoteRef, label: branch.upstream };
+});
+const branchRenameReady = computed(() => {
+  const name = values.value.text?.trim();
+  return Boolean(name && name !== values.value.target);
+});
 function ask(action: string, preset: Record<string, string> = {}) {
   menu.value = false;
   const definition = definitions[action];
@@ -930,6 +1043,10 @@ function ask(action: string, preset: Record<string, string> = {}) {
   dialogDescription.value = definition.description;
   fields.value = definition.fields || [];
   values.value = { ...definition.defaults, ...preset };
+  if (action === "push") {
+    const current = localBranches.value.find((branch) => branch.current);
+    selectPushBranch(current?.name.slice("refs/heads/".length) ?? "");
+  }
   dialogError.value = "";
   rebaseCommits.value = [];
 }
@@ -960,8 +1077,15 @@ async function executeDialog() {
         throw new Error("No commits after that base.");
       return;
     }
-    const params: Partial<GitRequest> = { ...values.value };
-    if (dialog.value === "push") params.pushTags = values.value.pushTags === "yes";
+    let params: Partial<GitRequest> = { ...values.value };
+    if (dialog.value === "push") {
+      if (!pushDestination.value) return;
+      params = {
+        pushDestination: pushDestination.value,
+        mode: values.value.mode,
+        pushTags: values.value.pushTags === "yes",
+      };
+    }
     if (dialog.value === "discard-files") {
       if (repo.value !== discardRepo.value)
         throw new Error(
@@ -975,11 +1099,25 @@ async function executeDialog() {
         .join("\n");
     const action = dialog.value;
     const root = normalized(repo.value);
-    await w.mutate(action, params);
+    if (action === "branch-rename") {
+      if (!branchRenameReady.value) return;
+      if (repo.value !== branchRenameRepo) {
+        throw new Error("The repository changed. Close this dialog and try again.");
+      }
+      const name = values.value.text!.trim();
+      const upstream = branchRenameUpstream.value;
+      const renameUpstream = values.value.renameUpstream === "yes" &&
+        upstream && upstream.ref !== `refs/heads/${name}`
+        ? { remote: upstream.remote, ref: upstream.ref }
+        : undefined;
+      await w.renameBranch(values.value.target!, name, renameUpstream);
+    } else {
+      await w.mutate(action, params);
+    }
     if (action === "commit") commitMessages.value[root] = "";
     dialog.value = "";
   } catch (e) {
-    if (snapshot.value?.files.some((file) => file.conflict)) {
+    if (dialog.value !== "branch-rename" && snapshot.value?.files.some((file) => file.conflict)) {
       dialog.value = "";
       error.value = "";
       conflictInitial.value = "";
@@ -991,8 +1129,10 @@ async function executeDialog() {
 async function stopAgents() {
   try {
     await chat.value?.stopAll();
-    notice.value =
-      "Stop requested. Wait until the tasks stop before continuing.";
+    notice.value = {
+      kind: "info",
+      message: "Stop requested. Wait until the tasks stop before continuing.",
+    };
   } catch (e) {
     dialogError.value = String(e);
   }
@@ -1018,7 +1158,8 @@ async function toggleFileStage(
       (folder ? file.path.startsWith(`${path}/`) : file.path === path),
   );
   if (files.some((file) => file.conflict)) {
-    error.value = "Resolve conflicting files before staging these changes.";
+    error.value = "";
+    notice.value = { kind: "warning", message: "Resolve conflicting files before staging these changes." };
     return;
   }
   try {
@@ -1037,7 +1178,8 @@ async function toggleSelectedFiles(paths: string[], group: string) {
     (file) => paths.includes(file.path),
   );
   if (files.some((file) => file.conflict)) {
-    error.value = "Resolve conflicting files before staging these changes.";
+    error.value = "";
+    notice.value = { kind: "warning", message: "Resolve conflicting files before staging these changes." };
     return;
   }
   try {
@@ -1638,26 +1780,11 @@ onUnmounted(() => {
           }}
         </AppButton>
       </div>
-      <div
-        v-if="error"
-        class="error-banner flex items-center gap-[9px] py-[10px] px-[15px] text-[11px] leading-[1.7] bg-[var(--danger-bg)] text-[var(--danger)] border-b-[1px] border-solid border-b-[var(--line)] [&>span]:flex-1 [&>span]:whitespace-pre-wrap"
-        role="alert"
-      >
-        <AlertTriangle :size="15" /><span>{{ error }}</span
-        ><AppButton
-          size="icon"
-          class="icon-button"
-          aria-label="Dismiss error"
-          @click="error = ''"
-        >
-          <X :size="14" />
-        </AppButton>
-      </div>
     </div>
     <aside
       v-show="!chatVisible"
       id="repository-sidebar"
-      class="sidebar relative min-w-0 bg-[var(--bg)] border-r-[1px] border-r-[var(--line)] flex flex-col min-h-0 [&.chat-mode>.sidebar-scroll]:flex-[0_1_auto] [&.chat-mode>.sidebar-scroll]:max-h-[170px] [&.chat-mode>.sidebar-scroll]:pb-[8px] [&.chat-mode_.nav-section]:my-[4px] [&.chat-mode_.nav-section]:mx-0 [&.chat-mode_.nav-section]:pt-0 [&.chat-mode_.nav-section]:[border-top:0] [&>.chat-panel]:flex-1 [&>.chat-panel]:[border-left:0] [&>.chat-panel]:[border-top:0] [&_.tree-row.current-worktree]:text-[var(--fg)] [&_.tree-row.current-worktree]:bg-[var(--selection)] [&_.current-worktree_.tiny-label]:text-[var(--fg)] [&_.current-worktree_.tiny-label]:bg-[var(--selection)] [&_.current-worktree_.tiny-label]:py-[2px] [&_.current-worktree_.tiny-label]:px-[5px] [&_.current-worktree_.tiny-label]:rounded-[4px] [&_.worktree-row]:pt-[8px] [&_.worktree-row]:pb-[8px] [&_.worktree-name]:flex [&_.worktree-name]:flex-col [&_.worktree-name]:items-start [&_.worktree-name]:flex-1 [&_.worktree-name]:min-w-0 [&_.worktree-name]:gap-[4px] [&_.worktree-name_strong]:text-[11px] [&_.worktree-name_strong]:font-semibold [&_.worktree-name_strong]:max-w-full [&_.worktree-name_strong]:overflow-hidden [&_.worktree-name_strong]:text-ellipsis [&_.worktree-name_small]:text-[10px] [&_.worktree-name_small]:text-[var(--fg-secondary)] [&_.worktree-name_small]:max-w-full [&_.worktree-name_small]:flex-none [&_.worktree-row_.tiny-label]:shrink-0 [&_.nav-section>.section-heading:not(:first-child)]:border-t-[1px] [&_.nav-section>.section-heading:not(:first-child)]:border-solid [&_.nav-section>.section-heading:not(:first-child)]:border-t-[var(--line)] [&_.nav-section>.section-heading:not(:first-child)]:mt-[12px] [&_.nav-section>.section-heading:not(:first-child)]:pt-[12px] [&_.nav-section>.section-heading:not(:first-child)]:rounded-none [&_button:focus-visible]:[outline:2px_solid_var(--accent)] [&_button:focus-visible]:outline-offset-[-2px] [&_summary:focus-visible]:[outline:2px_solid_var(--accent)] [&_summary:focus-visible]:outline-offset-[-2px] mt-[8px] mr-0 mb-[8px] ml-[8px] border border-solid border-[var(--line)] rounded-[9px] [&_.tree-row]:min-h-[28px]! [&_.tree-row]:py-[5px]! [&_.tree-row]:px-[7px]! [&_.tree-row]:text-[12px]! [&_.tree-row]:rounded-[5px]! [&_.section-heading]:text-[var(--muted)]! [&_.section-heading]:text-[10px]! [&_.section-heading]:tracking-[.04em]! [&_.branch-tree_button.tree-row]:pl-[28px]!"
+      class="sidebar relative min-w-0 bg-[var(--bg)] border-r-[1px] border-r-[var(--line)] flex flex-col min-h-0 [&.chat-mode>.sidebar-scroll]:flex-[0_1_auto] [&.chat-mode>.sidebar-scroll]:max-h-[170px] [&.chat-mode>.sidebar-scroll]:pb-[8px] [&.chat-mode_.nav-section]:my-[4px] [&.chat-mode_.nav-section]:mx-0 [&.chat-mode_.nav-section]:pt-0 [&.chat-mode_.nav-section]:[border-top:0] [&>.chat-panel]:flex-1 [&>.chat-panel]:[border-left:0] [&>.chat-panel]:[border-top:0] [&_.tree-row.current-worktree]:text-[var(--fg)] [&_.tree-row.current-worktree]:bg-[var(--selection)] [&_.current-worktree_.tiny-label]:text-[var(--fg)] [&_.current-worktree_.tiny-label]:bg-[var(--selection)] [&_.current-worktree_.tiny-label]:py-[2px] [&_.current-worktree_.tiny-label]:px-[5px] [&_.current-worktree_.tiny-label]:rounded-[4px] [&_.worktree-row]:pt-[8px] [&_.worktree-row]:pb-[8px] [&_.worktree-name]:flex [&_.worktree-name]:flex-col [&_.worktree-name]:items-start [&_.worktree-name]:flex-1 [&_.worktree-name]:min-w-0 [&_.worktree-name]:gap-[4px] [&_.worktree-name_strong]:text-[11px] [&_.worktree-name_strong]:font-semibold [&_.worktree-name_strong]:max-w-full [&_.worktree-name_strong]:overflow-hidden [&_.worktree-name_strong]:text-ellipsis [&_.worktree-name_small]:text-[10px] [&_.worktree-name_small]:text-[var(--fg-secondary)] [&_.worktree-name_small]:max-w-full [&_.worktree-name_small]:flex-none [&_.worktree-row_.tiny-label]:shrink-0 [&_.nav-section>.section-heading:not(:first-child)]:border-t-[1px] [&_.nav-section>.section-heading:not(:first-child)]:border-solid [&_.nav-section>.section-heading:not(:first-child)]:border-t-[var(--line)] [&_.nav-section>.section-heading:not(:first-child)]:mt-[12px] [&_.nav-section>.section-heading:not(:first-child)]:pt-[12px] [&_.nav-section>.section-heading:not(:first-child)]:rounded-none [&_button:focus-visible]:[outline:2px_solid_var(--accent)] [&_button:focus-visible]:outline-offset-[-2px] [&_summary:focus-visible]:[outline:2px_solid_var(--accent)] [&_summary:focus-visible]:outline-offset-[-2px] mt-[8px] mr-0 mb-[8px] ml-[8px] border border-solid border-[var(--line)] rounded-[9px] [&_.tree-row]:min-h-[28px]! [&_.tree-row]:py-[5px]! [&_.tree-row]:px-[7px]! [&_.tree-row]:text-[12px]! [&_.tree-row]:rounded-[5px]! [&_.section-heading]:text-[var(--muted)]! [&_.section-heading]:text-[10px]! [&_.section-heading]:tracking-[.04em]!"
       :class="{ 'chat-mode': chatVisible }"
     >
       <div
@@ -1753,6 +1880,7 @@ onUnmounted(() => {
                 :active-filter="w.historyBranch.value"
                 @filter="filterBranch"
                 @select="switchBranch"
+                @rename="startBranchRename"
               />
               <AppTreeRow
                 class="tree-row subdued min-h-[32px] [&.current]:text-[var(--fg)] [&.current]:bg-[var(--selection)] [&.current]:shadow-[inset_2px_0_#9eafea]"
@@ -2267,7 +2395,7 @@ onUnmounted(() => {
                 class="panel-empty clean-state flex flex-col items-center justify-center text-center gap-[16px] py-[35px] px-[24px] text-[var(--muted)] flex-1 [&_p]:text-[12px] [&_p]:leading-[1.8] [&_p]:max-w-[300px] [&_h3]:text-[var(--fg-secondary)]"
               >
                 <div
-                  class="empty-orbit flex items-center justify-center w-[64px] h-[64px] rounded-[17px] border-[1px] border-solid border-[var(--line)] [background:linear-gradient(135deg,_#242a38,_#181c26)] text-[var(--accent)] shadow-[0_5px_20px_#0002] [[data-theme=daylight]_&]:bg-[var(--raised)]"
+                  class="empty-orbit flex items-center justify-center w-[64px] h-[64px] rounded-[17px] border-[1px] border-solid border-[var(--line)] [background:linear-gradient(135deg,_#242a38,_#181c26)] text-[var(--accent)] shadow-[0_5px_20px_#0002] [[data-theme=daylight]_&]:[background:var(--raised)] [[data-theme=daylight]_&]:shadow-none"
                 >
                   <Check :size="25" />
                 </div>
@@ -2293,7 +2421,7 @@ onUnmounted(() => {
         </template>
         <template v-else-if="view === 'history'"
           ><div
-            class="changes-title flex items-center justify-between py-[10px] px-[16px] gap-[12px] [&_p]:text-[10px] [&_p]:text-[var(--muted)] [&_p]:mt-[3px] [@media(min-width:1650px)]:py-[10px] [@media(min-width:1650px)]:px-[16px] [@media(max-width:1250px)]:py-[10px] [@media(max-width:1250px)]:px-[16px] [&_h1]:text-[13px] [&_h1]:tracking-normal h-[var(--pane-heading-height)] min-h-[var(--pane-heading-height)] shrink-0 border-b-[1px] border-b-[var(--line)] bg-[var(--panel)] border border-solid border-[var(--line)] rounded-[9px] mb-[8px]"
+            class="changes-title flex h-[var(--pane-heading-height)] shrink-0 items-center justify-between gap-[12px] bg-[var(--panel)] px-[16px] py-[10px] [&_h1]:text-[13px] [&_h1]:tracking-normal"
           >
             <div>
               <h1
@@ -2441,39 +2569,20 @@ onUnmounted(() => {
             </div>
           </div></template
         >
-        <template v-else
-          ><div
-            class="changes-title flex items-center justify-between py-[10px] px-[16px] gap-[12px] [&_p]:text-[10px] [&_p]:text-[var(--muted)] [&_p]:mt-[3px] [@media(min-width:1650px)]:py-[10px] [@media(min-width:1650px)]:px-[16px] [@media(max-width:1250px)]:py-[10px] [@media(max-width:1250px)]:px-[16px] [&_h1]:text-[13px] [&_h1]:tracking-normal h-[var(--pane-heading-height)] min-h-[var(--pane-heading-height)] shrink-0 border-b-[1px] border-b-[var(--line)] bg-[var(--panel)] border border-solid border-[var(--line)] rounded-[9px] mb-[8px]"
-          >
-            <div>
-              <h1
-                class="[:where(&)]:m-0 [:where(&)]:text-[22px] [:where(&)]:tracking-[-0.6px] [:where(&)]:font-semibold"
-              >
-                Reflog & recovery
-              </h1>
-              <p>
-                Recover a previous state by creating a branch at its commit.
-              </p>
-            </div>
-          </div>
-          <div
-            class="reflog-list flex-1 overflow-auto py-0 px-[15px] [&>button]:flex [&>button]:w-full [&>button]:justify-start [&>button]:text-left [&>button]:border-b-[1px] [&>button]:border-solid [&>button]:border-b-[var(--line)] [&>button]:rounded-none [&>button]:py-[13px] [&>button]:px-[7px] [&>button]:gap-[12px] [&>button]:text-[11px] [&>button>code]:text-[var(--fg-secondary)] [&>button>span:first-of-type]:flex-1 [&>button>span:first-of-type]:whitespace-normal [&>button>.text-button]:flex [&>button>.text-button]:items-center [&>button>.text-button]:gap-[6px] [&>button>.text-button]:text-[var(--muted)]"
-          >
-            <AppButton
-              v-for="line in reflog.trim().split('\n').filter(Boolean)"
-              :key="line"
-              @click="ask('branch-create', { target: line.split('\t')[0]! })"
-            >
-              <GitCommitHorizontal :size="16" /><code
-                class="[:where(&)]:font-['Cascadia_Code',_'JetBrains_Mono',_Consolas,_monospace]"
-                >{{ line.split("\t")[0]?.slice(0, 8) }}</code
-              ><span>{{ line.split("\t").slice(1).join(" · ") }}</span
-              ><span
-                class="text-button py-[3px] px-[5px] text-[11px] text-[var(--muted)]"
-                >Recover branch<ArrowUpRight :size="13"
-              /></span>
-            </AppButton></div
-        ></template>
+        <template v-else>
+          <header class="flex h-[var(--pane-heading-height)] shrink-0 flex-col justify-center gap-[3px] bg-[var(--panel)] px-[16px]">
+            <h1 class="m-0 text-[13px] font-semibold">Reflog & recovery</h1>
+            <p class="m-0 text-[11px] text-[var(--muted)]">
+              Create a branch at an earlier point in your local history.
+            </p>
+          </header>
+          <ReflogList
+            :log="reflog"
+            :loading="reflogLoading"
+            :disabled="example || busy"
+            @recover="(target) => ask('branch-create', { target })"
+          />
+        </template>
       </template>
       <div
         v-else
@@ -2511,25 +2620,32 @@ onUnmounted(() => {
           ><span><MessageSquare :size="16" />Shared conversations</span>
         </div>
       </div>
-      <div
-        v-if="busy || notice"
-        class="workspace-status flex items-center gap-[8px] py-[5px] px-[12px] min-h-[34px] shrink-0 border-t-[1px] border-solid border-t-[var(--line)] text-[var(--fg-secondary)] text-[11px] bg-[var(--panel)] mt-auto [&>span]:flex-1 [&>span]:min-w-0 [&>span]:[overflow-wrap:anywhere] [&>span]:whitespace-pre-wrap [&>span]:max-h-[80px] [&>span]:overflow-auto [&>span]:leading-[1.5]"
-        role="status"
-      >
-        <LoaderCircle v-if="busy" :size="14" class="spin animate-spin" />
-        <Check v-else :size="14" />
-        <span>{{ notice || "Working…" }}</span>
-        <AppButton
-          size="icon"
-          v-if="notice && !busy"
-          class="icon-button"
-          aria-label="Dismiss status message"
-          @click="notice = ''"
-        >
-          <X :size="14" />
-        </AppButton>
-      </div>
     </main>
+    <div
+      v-if="toast"
+      class="fixed right-[16px] bottom-[16px] z-[110] flex min-h-[40px] max-w-[min(calc(100%_-_32px),28rem)] items-start gap-[9px] rounded-[9px] py-[8px] pl-[12px] text-[12px] shadow-md"
+      :class="[toastColors[toast.kind], toast.pending ? 'pr-[12px]' : 'pr-[6px]']"
+      @mouseenter="toastHovered = true"
+      @mouseleave="toastHovered = false"
+    >
+      <LoaderCircle v-if="toast.pending" :size="16" class="mt-[3px] shrink-0 motion-safe:animate-spin" aria-hidden="true" />
+      <component v-else :is="toastIcons[toast.kind]" :size="16" class="mt-[3px] shrink-0" aria-hidden="true" />
+      <span
+        :role="toast.kind === 'error' ? 'alert' : 'status'"
+        class="min-w-0 max-h-[min(40vh,12rem)] overflow-auto whitespace-pre-wrap py-[2px] leading-[18px] text-[var(--fg)] [overflow-wrap:anywhere]"
+      >{{ toast.message }}</span>
+      <AppButton
+        v-if="!toast.pending"
+        size="icon"
+        class="!h-[22px] !w-[22px] !p-[3px] shrink-0 text-current"
+        aria-label="Dismiss notification"
+        @focus="toastFocused = true"
+        @blur="toastFocused = false"
+        @click="dismissToast"
+      >
+        <X :size="13" />
+      </AppButton>
+    </div>
     <ContextMenu ref="sidebarMenu" @error="error = $event" />
     <AppSettings v-if="settingsOpen" :theme="theme" :error="themeError" :t3-connected="t3Connected" :t3-origin="chat?.origin" :t3-error="chat?.connectionError" :pair-t3="chat?.pair" :category="settingsCategory" @theme="setTheme" @close="settingsOpen = false; settingsCategory = 'appearance'" />
     <Teleport to="body">
@@ -2682,6 +2798,31 @@ onUnmounted(() => {
                 :class="values.mode === 'hard' ? 'text-[var(--danger)]' : 'text-[var(--fg-secondary)]'"
               >{{ resetModeDescriptions[values.mode ?? 'mixed'] }}</span>
             </label>
+            <template v-if="dialog === 'branch-rename'">
+              <label>
+                New name
+                <AppInput
+                  ref="branchRenameInput"
+                  v-model="values.text"
+                  :disabled="busy"
+                  required
+                  spellcheck="false"
+                />
+              </label>
+              <label v-if="branchRenameUpstream" class="force-option">
+                <AppInput
+                  v-model="values.renameUpstream"
+                  type="checkbox"
+                  true-value="yes"
+                  false-value=""
+                  :disabled="busy"
+                />
+                <span class="min-w-0 [overflow-wrap:anywhere]">Also rename {{ branchRenameUpstream.label }}</span>
+              </label>
+              <AppHint v-if="branchRenameUpstream && values.renameUpstream === 'yes'" class="nav-hint">
+                If Git cannot rename the remote branch, your local branch keeps its new name.
+              </AppHint>
+            </template>
             <label v-if="dialog === 'branch-delete'" class="force-option">
               <AppInput
                 v-model="values.mode"
@@ -2692,6 +2833,50 @@ onUnmounted(() => {
               />
               Force delete even if the branch is not merged
             </label>
+            <template v-if="dialog === 'push'">
+              <AppHint v-if="!pushRemotes.length" class="nav-hint">
+                Add a Git remote to publish a branch.
+              </AppHint>
+              <AppHint v-else-if="!pushBranches.length" class="nav-hint">
+                Create a local branch with a commit first.
+              </AppHint>
+              <template v-else>
+                <label>
+                  Local branch
+                  <AppSelect
+                    :model-value="values.branch"
+                    :options="pushBranches"
+                    :disabled="busy"
+                    aria-label="Local branch"
+                    placeholder="Choose a local branch"
+                    @update:model-value="selectPushBranch"
+                  />
+                </label>
+                <label>
+                  Remote
+                  <AppSelect
+                    v-model="values.remote"
+                    :options="pushRemotes"
+                    :disabled="busy"
+                    aria-label="Remote"
+                  />
+                </label>
+                <label>
+                  Remote branch
+                  <AppInput v-model="values.remoteBranch" :disabled="busy" required />
+                </label>
+                <label v-if="showPushTracking" class="force-option">
+                  <AppInput
+                    v-model="values.setUpstream"
+                    type="checkbox"
+                    true-value="yes"
+                    false-value=""
+                    :disabled="busy"
+                  />
+                  Create tracking reference (set upstream)
+                </label>
+              </template>
+            </template>
             <label v-if="dialog === 'push'" class="force-option">
               <AppInput
                 v-model="values.pushTags"
@@ -2783,7 +2968,7 @@ onUnmounted(() => {
                     },
                   ],
                 ]"
-                :disabled="busy || example"
+                :disabled="busy || example || (dialog === 'push' && !pushDestination) || (dialog === 'branch-rename' && !branchRenameReady)"
               >
                 {{
                   busy
@@ -2792,9 +2977,13 @@ onUnmounted(() => {
                       ? "Load commits"
                       : activeAgents.length
                         ? "Proceed while agents are active"
-                        : dialog === "push" && values.mode === "force"
-                          ? "Force push"
-                          : dialogTitle
+                        : dialog === "push"
+                          ? values.mode === "force"
+                            ? "Force push"
+                            : "Push"
+                          : dialog === "branch-rename"
+                            ? "Rename"
+                            : dialogTitle
                 }}
               </AppButton>
             </AppDialogFooter>

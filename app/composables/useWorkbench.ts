@@ -10,6 +10,7 @@ import type {
   Diff,
   FileStatus,
   GitRequest,
+  WorkspaceNotice,
 } from "~/lib/types";
 
 export function useWorkbench() {
@@ -73,12 +74,13 @@ export function useWorkbench() {
     search = ref(""),
     busy = ref(false),
     error = ref(""),
-    notice = ref(""),
+    notice = ref<WorkspaceNotice>(),
     example = ref(false);
   const branchFiles = ref<string[]>([]),
     selectedCommit = ref<Commit>(),
     historyDiff = ref(""),
-    reflog = ref("");
+    reflog = ref<string>(),
+    reflogLoading = ref(false);
   let timer: ReturnType<typeof setInterval> | undefined,
     generation = 0,
     diffGeneration = 0,
@@ -262,7 +264,9 @@ export function useWorkbench() {
         const saved = await invoke<string[]>("repositories_load");
         if (request === repositoryRequest) recent.value = saved;
       }).catch((e) => {
-        if (request === repositoryRequest) error.value = `Repository opened, but history could not be saved: ${e}`;
+        if (request === repositoryRequest) {
+          notice.value = { kind: "warning", message: `Repository opened, but history could not be saved: ${e}` };
+        }
       });
     } catch (e) {
       if (request === repositoryRequest) error.value = String(e);
@@ -304,7 +308,7 @@ export function useWorkbench() {
       error.value = `Could not refresh changed files: ${e}`;
     }
   }
-  async function runMutation(operation: () => Promise<string>, indexOnly = false, paths?: string[]) {
+  async function runMutation<T extends string | WorkspaceNotice>(operation: () => Promise<T>, indexOnly = false, paths?: string[]) {
     if (example.value)
       throw new Error(
         "This is an example workspace. Open a real repository in the desktop app to make changes.",
@@ -319,10 +323,12 @@ export function useWorkbench() {
       diffCache.invalidate(key => { const [root, , , path] = JSON.parse(key); return root === repo.value && changed.has(path); });
     } else diffCache.clear();
     error.value = "";
-    notice.value = "";
+    notice.value = undefined;
     try {
       const out = await operation();
-      notice.value = out?.trim() || "Done";
+      notice.value = typeof out === "string"
+        ? { kind: "success", message: out.trim() || "Done" }
+        : out ?? { kind: "success", message: "Done" };
       return out;
     } catch (e) {
       error.value = String(e);
@@ -338,6 +344,17 @@ export function useWorkbench() {
       return stageFiles([extra.path], action === 'stage' ? 'working' : 'staged');
     return runMutation(() => read<string>(action, extra), ['stage', 'unstage', 'patch'].includes(action), ['stage', 'unstage', 'patch'].includes(action) && extra.path ? [extra.path] : undefined);
   }
+  async function renameBranch(target: string, text: string, renameUpstream?: GitRequest["renameUpstream"]) {
+    const root = repo.value;
+    const filter = historyBranch.value;
+    const usingBranchAsBase = base.value === target;
+    await runMutation(() => read<WorkspaceNotice>("branch-rename", { target, text, renameUpstream }));
+    if (repo.value !== root) return;
+    if (usingBranchAsBase) base.value = text;
+    if (historyBranch.value === filter && filter?.name === `refs/heads/${target}`) {
+      filterHistory(`refs/heads/${text}`, filter.mode);
+    }
+  }
   async function stageFiles(paths: string[], fileMode: string) {
     if (!paths.length || !['working', 'staged'].includes(fileMode)) return;
     const action = fileMode === 'staged' ? 'unstage' : 'stage';
@@ -351,11 +368,11 @@ export function useWorkbench() {
     diffGeneration++;
     diffCache.invalidate(key => { const [root, , , path] = JSON.parse(key); return root === repo.value && pending.paths.has(path); });
     const operation = stageQueue.then(async () => {
-      notice.value = `${action === 'stage' ? 'Staging' : 'Unstaging'} ${paths.length} files...`;
+      notice.value = { kind: "info", message: `${action === 'stage' ? 'Staging' : 'Unstaging'} ${paths.length} files...` };
       try {
         const out = await read<string>(paths.length > 1 ? `${action}-files` : action,
           paths.length > 1 ? { files: paths.map(path => ({ path })) } : { path: paths[0] });
-        notice.value = out?.trim() || "Done";
+        notice.value = { kind: "success", message: out?.trim() || "Done" };
         return out;
       } catch (e) {
         const failure = paths.length === 1 ? new Error(`0 of 1 files ${action === 'stage' ? 'staged' : 'unstaged'}. ${e}`) : e;
@@ -416,18 +433,26 @@ export function useWorkbench() {
     if (!currentFiles.value.some((file) => file.path === selected.value))
       selected.value = currentFiles.value[0]?.path || "";
   });
-  watch(view, async () => {
-    if (view.value === "reflog") {
-      if (example.value) {
-        reflog.value =
-          "f37a21d\tHEAD@{0}\tcommit: Keep conversations and worktrees in sync";
-        return;
-      }
-      try {
-        reflog.value = await read<string>("reflog");
-      } catch (e) {
-        error.value = String(e);
-      }
+  watch([view, repo, example], async ([next, , isExample], _, onCleanup) => {
+    if (next !== "reflog") return;
+    if (isExample) {
+      reflog.value = "f37a21d\tHEAD@{0}\tcommit: Keep conversations and worktrees in sync";
+      return;
+    }
+    reflog.value = undefined;
+    reflogLoading.value = true;
+    let active = true;
+    onCleanup(() => {
+      active = false;
+      reflogLoading.value = false;
+    });
+    try {
+      const log = await read<string>("reflog");
+      if (active) reflog.value = log;
+    } catch (e) {
+      if (active) error.value = String(e);
+    } finally {
+      if (active) reflogLoading.value = false;
     }
   });
   const normalize = (path: string) => path.replaceAll('\\', '/').replace(/\/$/, '').toLowerCase();
@@ -478,7 +503,7 @@ export function useWorkbench() {
       if (desktop()) await invoke("repositories_save", { repositories: nextRecent });
       else localStorage.setItem("gitgoblin.repositories", JSON.stringify(nextRecent));
       recent.value = nextRecent;
-      notice.value = "Removed from GitGoblin’s repository list. The folder is still on disk.";
+      notice.value = { kind: "success", message: "Removed from GitGoblin’s repository list. The folder is still on disk." };
     } catch (e) {
       error.value = `Could not remove repository from the list: ${e}`;
     } finally {
@@ -571,12 +596,14 @@ export function useWorkbench() {
     selectedCommit,
     historyDiff,
     reflog,
+    reflogLoading,
     openRepo,
     showExample,
     refresh,
     loadDiff,
     read,
     mutate,
+    renameBranch,
     stageFiles,
     staging,
     selectCommit,
