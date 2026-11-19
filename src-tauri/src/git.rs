@@ -975,8 +975,11 @@ pub fn execute_checked(req: Request, check: impl Fn() -> Result<(), String>) -> 
                 .ok_or("This folder is not a registered worktree of this repository.")?;
             if position == 0 { return Err("The main worktree cannot be removed.".into()); }
             if target == repo { return Err("Switch to another worktree before removing the open worktree.".into()); }
-            // Git refuses dirty or locked worktrees; never force or delete folders ourselves.
-            json!(git(&repo, &["worktree", "remove", "--", &target.to_string_lossy()])?)
+            let path = target.to_string_lossy();
+            let mut args = vec!["worktree", "remove"];
+            if req.mode == "force" { args.push("--force"); }
+            args.extend(["--", path.as_ref()]);
+            json!(git(&repo, &args)?)
         }
         "worktree-add" => {
             branch(&repo, &req.text)?;
@@ -997,6 +1000,34 @@ pub fn execute_checked(req: Request, check: impl Fn() -> Result<(), String>) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn pr_review_fetches_missing_commits_and_excludes_target_only_changes() {
+        let origin = fixture();
+        let remote = origin.path();
+        git(remote, &["commit", "--allow-empty", "-m", "common"]).unwrap();
+        git(remote, &["branch", "feature"]).unwrap();
+        fs::write(remote.join("target.txt"), "target").unwrap();
+        git(remote, &["add", "."]).unwrap();
+        git(remote, &["commit", "-m", "target"]).unwrap();
+        let base = oid(remote, "HEAD").unwrap();
+        git(remote, &["switch", "feature"]).unwrap();
+        fs::write(remote.join("feature.txt"), "feature").unwrap();
+        git(remote, &["add", "."]).unwrap();
+        git(remote, &["commit", "-m", "feature"]).unwrap();
+        let head = oid(remote, "HEAD").unwrap();
+
+        let local = fixture();
+        let repo = local.path();
+        git(repo, &["remote", "add", "origin", remote.to_str().unwrap()]).unwrap();
+        fs::write(repo.join("local.txt"), "unfinished").unwrap();
+        let status = git(repo, &["status", "--porcelain", "--branch"]).unwrap();
+        let patch = crate::devops::pull_request_diff(repo.to_str().unwrap(), &base, &head).unwrap();
+        assert!(patch.contains("+feature"));
+        assert!(!patch.contains("target.txt"));
+        assert_eq!(git(repo, &["status", "--porcelain", "--branch"]).unwrap(), status);
+        assert!(git(repo, &["for-each-ref"]).unwrap().is_empty());
+    }
+
     #[test]
     #[ignore = "manual performance measurement with isolated repositories"]
     fn performance_large_workloads() {
@@ -1531,7 +1562,7 @@ mod tests {
         assert!(repo.join("keep.txt").exists());
     }
     #[test]
-    fn removes_only_clean_registered_linked_worktrees_and_groups_recent_repositories() {
+    fn removes_registered_worktrees_with_explicit_force_and_groups_recent_repositories() {
         let dir = fixture();
         let repo = dir.path();
         git(repo, &["commit", "--allow-empty", "-m", "initial"]).unwrap();
@@ -1550,22 +1581,23 @@ mod tests {
         assert_eq!(fs::canonicalize(&roots[0]).unwrap(), fs::canonicalize(repo).unwrap());
         crate::preferences::save_repositories(history.path(), &saved).unwrap();
         assert_eq!(crate::preferences::load_repositories(history.path()).unwrap().unwrap(), roots);
-        let remove = |from: &Path, target: &str| {
+        let remove = |from: &Path, target: &str, mode: &str| {
             let mut req = request(from, "worktree-remove");
             req.path = target.into();
+            req.mode = mode.into();
             execute(req)
         };
-        assert!(remove(repo, &repo.to_string_lossy()).unwrap_err().contains("main worktree"));
-        assert!(remove(&linked, &path).unwrap_err().contains("open worktree"));
-        assert!(remove(repo, &history.path().to_string_lossy()).unwrap_err().contains("not a registered"));
+        assert!(remove(repo, &repo.to_string_lossy(), "force").unwrap_err().contains("main worktree"));
+        assert!(remove(&linked, &path, "force").unwrap_err().contains("open worktree"));
+        assert!(remove(repo, &history.path().to_string_lossy(), "force").unwrap_err().contains("not a registered"));
         fs::write(linked.join("untracked.txt"), "keep me").unwrap();
-        assert!(remove(repo, &path).is_err());
+        assert!(remove(repo, &path, "").is_err());
         assert_eq!(fs::read_to_string(linked.join("untracked.txt")).unwrap(), "keep me");
-        fs::remove_file(linked.join("untracked.txt")).unwrap();
         git(repo, &["worktree", "lock", &path]).unwrap();
-        assert!(remove(repo, &path).is_err());
+        assert!(remove(repo, &path, "").is_err());
+        assert!(remove(repo, &path, "force").is_err());
         git(repo, &["worktree", "unlock", &path]).unwrap();
-        remove(repo, &path).unwrap();
+        remove(repo, &path, "force").unwrap();
         assert!(!linked.exists());
         assert_eq!(worktrees(repo).unwrap().len(), 1);
         assert!(oid(repo, "linked").is_ok());

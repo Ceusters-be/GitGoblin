@@ -38,6 +38,41 @@ function mount(name: string, props: Record<string, unknown>) {
   return { host, stop: () => { app.unmount(); host.remove(); } };
 }
 
+it('only expands and collapses folders from their chevron', async () => {
+  const { host, stop } = mount('DiffFileNavigator', { files: [{ path: 'src/main.ts', index: 'M', working: ' ' }], selected: '' });
+  try {
+    host.querySelector<HTMLElement>('span[title="src"]')!.click();
+    await Vue.nextTick();
+    expect(host.textContent).toContain('main.ts');
+    const toggle = host.querySelector<HTMLButtonElement>('button[aria-label="Toggle folder src"]')!;
+    toggle.click();
+    await Vue.nextTick();
+    expect(host.textContent).not.toContain('main.ts');
+    toggle.click();
+    await Vue.nextTick();
+    expect(host.textContent).toContain('main.ts');
+  } finally { stop(); }
+});
+
+it('remembers checked files only for the reviewed PR revision', async () => {
+  const props = { files: [{ path: 'main.ts', index: 'M', working: ' ' }], selected: '' };
+  function open(reviewKey: string) {
+    const mounted = mount('DiffFileNavigator', { ...props, reviewKey });
+    return { ...mounted, box: mounted.host.querySelector<HTMLInputElement>('input[type=checkbox]')! };
+  }
+  const first = open('pr-42-revision-a');
+  first.box.click();
+  await Vue.nextTick();
+  expect(first.host.textContent).toContain('1 of 1 files reviewed');
+  first.stop();
+  const reopened = open('pr-42-revision-a');
+  expect(reopened.box.checked).toBe(true);
+  reopened.stop();
+  const updated = open('pr-42-revision-b');
+  expect(updated.box.checked).toBe(false);
+  updated.stop();
+});
+
 it('previews an added image, handles decode errors, and releases its URL', async () => {
   imageGit.mockResolvedValue({ mime: 'image/png', original: null, modified: [1, 2, 3] });
   const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test-image');

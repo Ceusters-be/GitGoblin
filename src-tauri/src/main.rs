@@ -23,6 +23,30 @@ struct AppState {
 }
 
 #[tauri::command]
+async fn devops_review_vote(repo: String, repository_id: String, id: u64, vote: Option<String>) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || devops::review_vote(&repo, &repository_id, id, vote.as_deref()))
+        .await.map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+async fn devops_pr_diff(repo: String, base: String, head: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || devops::pull_request_diff(&repo, &base, &head))
+        .await.map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+async fn devops_pull_requests(repo: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || devops::pull_requests(&repo))
+        .await.map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+async fn devops_sign_in() -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || devops::sign_in())
+        .await.map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
 async fn devops_tickets(repo: String, query: String) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || devops::tickets(&repo, &query))
         .await.map_err(|error| error.to_string())?
@@ -411,6 +435,10 @@ fn main() {
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             git_request,
+            devops_sign_in,
+            devops_pull_requests,
+            devops_pr_diff,
+            devops_review_vote,
             devops_tickets,
             t3_discover,
             t3_pair,

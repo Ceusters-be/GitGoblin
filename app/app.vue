@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import FileTypeIcon from "./components/FileTypeIcon.vue";
+import type { PullRequest } from "~/lib/types";
 import {
   PopoverContent,
   PopoverPortal,
@@ -10,6 +11,7 @@ import { version as appVersion } from "../package.json";
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
 import {
   GitBranch,
+  GitPullRequest,
   GitCommitHorizontal,
   GitMerge,
   History,
@@ -72,7 +74,9 @@ import type {
   GitRef,
   WorkspaceNotice,
 } from "~/lib/types";
+const developmentBuild = import.meta.env.DEV;
 const w = useWorkbench();
+const selectedPr = ref<PullRequest>();
 const { theme, error: themeError, setTheme } = useTheme();
 const settingsOpen = ref(false);
 const settingsCategory = ref("appearance");
@@ -770,6 +774,10 @@ function selectFile(path: string, group: string) {
   mode.value = group;
   selected.value = path;
 }
+watch(repo, () => {
+  selectedPr.value = undefined;
+  if (view.value === "pull-request") view.value = "changes";
+});
 const sections = ref<Record<string, boolean>>({
   branches: true,
   worktrees: true,
@@ -939,7 +947,7 @@ const definitions: Record<
   "worktree-remove": {
     title: "Remove worktree",
     description:
-      "Remove this worktree folder and its Git registration. The branch and its commits are kept. Git refuses dirty or locked worktrees. Ignored files inside the folder will also be deleted.",
+      "Remove this worktree folder and its Git registration. The branch and its commits are kept. Locked worktrees must be unlocked first. Ignored files inside the folder will also be deleted.",
     fields: [{ key: "path", label: "Worktree folder to remove" }],
   },
   rebase: {
@@ -1267,7 +1275,7 @@ async function openThreadWorktree(path: string, threadId: string) {
     chatViews.set(currentChat, {
       selected: selected.value,
       mode: mode.value,
-      view: view.value,
+      view: view.value === "pull-request" ? "changes" : view.value,
       base: base.value,
       scroll:
         document.querySelector(".review-panel .diff-scroll")?.scrollTop || 0,
@@ -1441,6 +1449,7 @@ onUnmounted(() => {
           <img src="/icon.png" alt="" width="25" height="25" class="brand-logo-light shrink-0 object-contain hidden [[data-theme=daylight]_&]:block" draggable="false" />
           <img src="/icon-dark.png" alt="" width="25" height="25" class="brand-logo-dark shrink-0 object-contain [[data-theme=daylight]_&]:hidden" draggable="false" /><strong class="font-bold">GitGoblin</strong>
           <span class="text-[11px] text-[var(--muted)] tabular-nums whitespace-nowrap" :title="`GitGoblin version ${appVersion}`">v{{ appVersion }}</span>
+          <span v-if="developmentBuild" class="rounded bg-[var(--warning-bg)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--warning)]">Development</span>
           <span class="shrink-0 whitespace-nowrap rounded-[4px] border border-[var(--line)] bg-[var(--raised)] ml-[5px] px-[5px] py-[2px] text-[9px] font-normal uppercase tracking-[1.4px] text-[var(--muted)]">Early access</span>
           <nav
             class="workspace-modes grid w-[164px] shrink-0 grid-cols-[70px_minmax(0,1fr)] gap-[4px] mt-0 mr-0 mb-0 ml-[12px] p-[3px] bg-[var(--bg)] border-solid border-[var(--line)] [&>button]:min-w-0 [&>button]:justify-center [&>button]:gap-[4px] [&>button]:py-0 [&>button]:px-[7px] [&>button]:text-[var(--muted)] [&>button]:rounded-[6px] [&>button]:text-[12px] [&>button[aria-pressed='true']]:bg-[var(--selection)] h-[32px] border-0 rounded-[7px] [&>button[aria-pressed='true']]:text-[var(--accent)] [&>button[aria-pressed='true']]:shadow-none"
@@ -1831,6 +1840,12 @@ onUnmounted(() => {
               @click="view = 'reflog'"
             >
               <GitCommitHorizontal :size="16" />Reflog & recovery
+            </AppButton>
+            <AppButton v-if="repo && !example"
+              :class="{ active: view === 'pull-requests' || view === 'pull-request' }"
+              :aria-current="view === 'pull-requests' || view === 'pull-request' ? 'page' : undefined"
+              @click="view = 'pull-requests'">
+              <GitPullRequest :size="16" />Pull Requests
             </AppButton>
           </nav>
           <div
@@ -2393,6 +2408,13 @@ onUnmounted(() => {
             </section>
           </div>
         </template>
+        <template v-else-if="view === 'pull-requests' || view === 'pull-request'">
+          <DevopsPullRequests :visible="view === 'pull-requests' || !selectedPr" v-show="view === 'pull-requests' || !selectedPr" :key="repo" :repo="repo"
+            @select="pr => { selectedPr = pr; view = 'pull-request' }" />
+          <PullRequestReview v-if="view === 'pull-request' && selectedPr"
+          :key="JSON.stringify([repo, selectedPr.id, selectedPr.base, selectedPr.head])"
+          :repo="repo" :pr="selectedPr" @back="view = 'pull-requests'" @edit-context="editContext" />
+        </template>
         <template v-else-if="view === 'history'"
           ><div
             class="changes-title flex h-[var(--pane-heading-height)] shrink-0 items-center justify-between gap-[12px] bg-[var(--panel)] px-[16px] py-[10px] [&_h1]:text-[13px] [&_h1]:tracking-normal"
@@ -2796,6 +2818,10 @@ onUnmounted(() => {
                 If Git cannot rename the remote branch, your local branch keeps its new name.
               </AppHint>
             </template>
+            <label v-if="dialog === 'worktree-remove'" class="force-option">
+              <AppInput v-model="values.mode" type="checkbox" true-value="force" false-value="" :disabled="busy" />
+              Force removal and permanently discard uncommitted changes and untracked files
+            </label>
             <label v-if="dialog === 'branch-delete'" class="force-option">
               <AppInput
                 v-model="values.mode"

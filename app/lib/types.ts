@@ -200,3 +200,19 @@ export interface T3Activity {
   createdAt: string;
   payload?: { toolCallId?: string; status?: string; title?: string; requestId?: string; questions?: T3Question[]; responseMode?: string };
 }
+
+export interface PullRequest {
+  myVote: number | null;
+  needsReview: boolean | null;
+  createdAt: string | null;
+  draft: boolean;
+  repositoryId: string;
+  author: string;
+  source: string;
+  target: string;
+  id: number;
+  title: string;
+  url: string;
+  base: string | null;
+  head: string | null;
+}

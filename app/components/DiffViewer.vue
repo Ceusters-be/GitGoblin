@@ -21,6 +21,7 @@ const props = defineProps<{
   mode: string;
   path?: string;
   editable?: boolean;
+  reviewKey?: string;
   loading?: boolean;
   disabled?: boolean;
   wholeFile?: boolean;
@@ -464,7 +465,7 @@ function stage(indices?: number[], hunkStart?: number) {
       {{ error }}
     </div>
     <div class="diff-body flex min-h-0 flex-1 [&_.diff-scroll]:min-w-0">
-      <DiffFileNavigator v-if="navigationFiles.length > 1" :files="navigationFiles" :selected="selectedFile" @select="selectedFile = $event" />
+      <DiffFileNavigator v-if="navigationFiles.length > 1 || (reviewKey && navigationFiles.length)" :review-key="reviewKey" :files="navigationFiles" :selected="selectedFile" @select="selectedFile = $event" />
       <div v-if="preview && canPreview" class="min-w-0 flex-1 overflow-auto p-4">
         <p v-if="previewStatus" role="status">{{ previewStatus }}</p>
         <div v-else class="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,32ch),1fr))]">

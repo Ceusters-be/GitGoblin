@@ -5,6 +5,7 @@ use std::{env, path::Path, process::{Command, Stdio}};
 struct Project {
     organization: String,
     project: String,
+    repository: String,
 }
 
 fn decode_segment(value: &str) -> Result<String, String> {
@@ -36,7 +37,7 @@ fn project_from_remote(remote: &str) -> Result<Project, String> {
     } else if let Some(org) = host.strip_suffix(".visualstudio.com") {
         if parts.first().is_some_and(|part| part == "DefaultCollection") { parts.remove(0); }
         org.to_string()
-    } else { return Err("This repository has no Azure DevOps origin. Enter a ticket reference manually.".into()); };
+    } else { return Err("This repository has no Azure DevOps origin.".into()); };
     if organization.is_empty() || !organization.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_') {
         return Err("Invalid Azure DevOps organization.".into());
     }
@@ -46,7 +47,8 @@ fn project_from_remote(remote: &str) -> Result<Project, String> {
         [project, _repo] => project.clone(),
         _ => return Err("Cannot determine the Azure DevOps project from this origin.".into()),
     };
-    Ok(Project { organization: format!("https://dev.azure.com/{organization}"), project })
+    let repository = parts.last().unwrap().clone();
+    Ok(Project { repository, organization: format!("https://dev.azure.com/{organization}"), project })
 }
 
 fn wiql(project: &str, search: &str) -> String {
@@ -77,7 +79,7 @@ fn azure_cli() -> Result<Command, String> {
             command.creation_flags(0x08000000);
             return Ok(command);
         }
-        Err("Install Azure CLI and its Azure DevOps extension to search tickets. You can still enter a ticket manually.".into())
+        Err("Install Azure CLI and its Azure DevOps extension.".into())
     }
     #[cfg(not(windows))]
     { Ok(Command::new("az")) }
@@ -122,15 +124,162 @@ pub fn tickets(repo: &str, search: &str) -> Result<Value, String> {
     Ok(ticket_results(&project, &items))
 }
 
+pub fn sign_in() -> Result<(), String> {
+    let status = azure_cli()?.args(["login", "--allow-no-subscriptions", "--output", "none"])
+        .stdin(Stdio::null()).stdout(Stdio::null()).status().map_err(|e| e.to_string())?;
+    if status.success() { Ok(()) } else { Err("Azure sign-in did not complete.".into()) }
+}
+
+fn repository_project(repo: &str) -> Result<Project, String> {
+    let remote = crate::git::command(Path::new(repo)).args(["remote", "get-url", "origin"])
+        .output().map_err(|e| e.to_string())?;
+    if !remote.status.success() { return Err("This repository has no origin.".into()); }
+    project_from_remote(&String::from_utf8_lossy(&remote.stdout))
+}
+
+fn personal_vote(pr: &Value, reviewer_id: &str) -> Option<i64> {
+    let reviewer = pr["reviewers"].as_array()?.iter().find(|r|
+        r["id"].as_str().is_some_and(|id| id.eq_ignore_ascii_case(reviewer_id)))?;
+    if reviewer["hasDeclined"] == true { return None; }
+    reviewer["vote"].as_i64()
+}
+
+pub fn pull_requests(repo: &str) -> Result<Value, String> {
+    let project = repository_project(repo)?;
+    let output = azure_cli()?.args(["repos", "pr", "list", "--org", &project.organization,
+        "--project", &project.project, "--repository", &project.repository, "--status", "active",
+        "--output", "json", "--only-show-errors"])
+        .env("AZURE_EXTENSION_USE_DYNAMIC_INSTALL", "no").stdin(Stdio::null()).output()
+        .map_err(|_| "Cannot start Azure CLI.")?;
+    if !output.status.success() {
+        return Err("Could not list pull requests. Check your Azure sign-in, repository access and Azure DevOps CLI extension.".into());
+    }
+    let items: Vec<Value> = serde_json::from_slice(&output.stdout).map_err(|_| "Invalid pull request response.")?;
+    let reviewer = if items.is_empty() { None } else { current_reviewer(&project).ok() };
+    let mut result = Vec::new();
+    for item in items {
+        let id = item["pullRequestId"].as_u64().ok_or("Missing pull request ID.")?;
+        let mut url = reqwest::Url::parse(&project.organization).map_err(|e| e.to_string())?;
+        url.path_segments_mut().unwrap().extend([project.project.as_str(), "_git", &project.repository, "pullrequest", &id.to_string()]);
+        let vote = reviewer.as_ref().and_then(|id| personal_vote(&item, id));
+        result.push(json!({ "id": id, "title": item["title"], "url": url.as_str(),
+            "myVote": vote,
+            "needsReview": reviewer.as_ref().map(|_| item["isDraft"] != true && vote == Some(0)),
+            "repositoryId": item.pointer("/repository/id").and_then(Value::as_str).ok_or("Missing Azure repository ID.")?,
+            "createdAt": item["creationDate"], "draft": item["isDraft"].as_bool().unwrap_or(false),
+            "author": item.pointer("/createdBy/displayName").and_then(Value::as_str).unwrap_or("Unknown author"),
+            "source": item["sourceRefName"].as_str().unwrap_or("").trim_start_matches("refs/heads/"),
+            "target": item["targetRefName"].as_str().unwrap_or("").trim_start_matches("refs/heads/"),
+            "base": item.pointer("/lastMergeTargetCommit/commitId"), "head": item.pointer("/lastMergeSourceCommit/commitId") }));
+    }
+    Ok(json!(result))
+}
+
+fn reviewer_request(url: &str, method: &str, body_file: Option<&Path>, failure: &str) -> Result<Value, String> {
+    let mut command = azure_cli()?;
+    command.args(["rest", "--url", url, "--method", method, "--resource", "499b84ac-1321-427f-aa17-267ca6975798",
+        "--output", "json", "--only-show-errors"]);
+    if let Some(path) = body_file {
+        command.args(["--headers", "Content-Type=application/json", "--body"])
+            .arg(format!("@{}", path.display()));
+    }
+    let output = command.stdin(Stdio::null()).output().map_err(|e| e.to_string())?;
+    if !output.status.success() { return Err(failure.into()); }
+    serde_json::from_slice(&output.stdout).map_err(|_| "Unexpected reviewer response from Azure DevOps.".into())
+}
+
+fn current_reviewer(project: &Project) -> Result<String, String> {
+    let connection = reviewer_request(&format!("{}/_apis/connectionData", project.organization), "GET", None,
+        "Could not identify your Azure CLI account in this organization. Check your Azure CLI sign-in.")?;
+    connection.pointer("/authenticatedUser/id").and_then(Value::as_str)
+        .map(str::to_owned).ok_or_else(|| "Azure DevOps did not identify the current reviewer.".into())
+}
+
+pub fn review_vote(repo: &str, repository_id: &str, id: u64, vote: Option<&str>) -> Result<Value, String> {
+    let project = repository_project(repo)?;
+    let reviewer = current_reviewer(&project)?;
+    let mut url = reqwest::Url::parse(&project.organization).map_err(|e| e.to_string())?;
+    url.path_segments_mut().unwrap().extend([project.project.as_str(), "_apis", "git", "repositories", repository_id,
+        "pullRequests", &id.to_string(), "reviewers"]);
+    url.set_query(Some("api-version=7.1"));
+    if let Some(choice) = vote {
+        let body = match choice {
+            "decline" => json!({"hasDeclined": true}),
+            _ => {
+                let value = match choice {
+                    "approve" => 10, "suggestions" => 5, "wait" => -5, "reject" => -10, "reset" => 0,
+                    _ => return Err("Unknown review vote.".into()),
+                };
+                json!({"id": reviewer, "vote": value, "hasDeclined": false})
+            }
+        };
+        let file = tempfile::NamedTempFile::new().map_err(|e| e.to_string())?;
+        serde_json::to_writer(file.as_file(), &body).map_err(|e| e.to_string())?;
+        url.path_segments_mut().unwrap().push(&reviewer);
+        let method = if choice == "decline" { "PATCH" } else { "PUT" };
+        return reviewer_request(url.as_str(), method, Some(file.path()), "Azure DevOps could not save your review decision.");
+    }
+    let reviewers = reviewer_request(url.as_str(), "GET", None, "Azure DevOps could not load reviewers for this pull request.")?;
+    let list = reviewers.as_array().or_else(|| reviewers["value"].as_array()).ok_or("Invalid reviewer list.")?;
+    Ok(list.iter().find(|r| r["id"].as_str().is_some_and(|id| id.eq_ignore_ascii_case(&reviewer))).cloned().unwrap_or(Value::Null))
+}
+
+pub fn pull_request_diff(repo: &str, base: &str, head: &str) -> Result<String, String> {
+    for oid in [base, head] {
+        if oid.len() != 40 || !oid.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err("Azure DevOps has not supplied both PR commits. Refresh and retry.".into());
+        }
+    }
+    let git = || crate::git::command(Path::new(repo));
+    if [base, head].iter().any(|oid| !git().args(["cat-file", "-e", oid]).output().is_ok_and(|o| o.status.success())) {
+        let fetch = git().args(["fetch", "--no-tags", "--no-write-fetch-head", "--refmap=", "origin", base, head])
+            .output().map_err(|e| e.to_string())?;
+        if !fetch.status.success() { return Err("Could not fetch PR commits from origin. Check Git credentials and refresh the PR list.".into()); }
+    }
+    let output = git().args(["diff", "--no-ext-diff", "--no-textconv", "--find-renames", &format!("{base}...{head}"), "--"])
+        .output().map_err(|e| e.to_string())?;
+    if !output.status.success() { return Err("Could not compare PR commits. Check that the clone contains their common history.".into()); }
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn uses_only_the_signed_in_reviewers_vote() {
+        let mut pr = json!({"reviewers": [{"id":"other","vote":-10}, {"id":"ME","vote":10}]});
+        assert_eq!(personal_vote(&pr, "me"), Some(10));
+        assert_eq!(personal_vote(&pr, "other"), Some(-10));
+        assert_eq!(personal_vote(&pr, "unassigned"), None);
+        for vote in [0, 5, -5, -10] {
+            pr["reviewers"][1]["vote"] = json!(vote);
+            assert_eq!(personal_vote(&pr, "me"), Some(vote));
+        }
+        pr["reviewers"][1]["hasDeclined"] = json!(true);
+        assert_eq!(personal_vote(&pr, "me"), None);
+    }
+
+    #[test]
+    #[ignore = "requires Azure CLI sign-in and a readable Azure DevOps PR"]
+    fn reads_current_vote_from_azure() {
+        let repo = tempfile::tempdir().unwrap();
+        let origin = env::var("GITGOBLIN_TEST_AZURE_ORIGIN").unwrap();
+        let repository_id = env::var("GITGOBLIN_TEST_AZURE_REPOSITORY_ID").unwrap();
+        let pr = env::var("GITGOBLIN_TEST_AZURE_PR").unwrap().parse().unwrap();
+        for args in [vec!["init"], vec!["remote", "add", "origin", &origin]] {
+            assert!(crate::git::command(repo.path()).args(args).output().unwrap().status.success());
+        }
+        let vote = review_vote(repo.path().to_str().unwrap(), &repository_id, pr, None).unwrap();
+        assert!(vote.is_null() || vote["vote"].is_number());
+    }
+
     #[test]
     fn recognizes_azure_remote_formats_and_decodes_project_names() {
         for remote in ["https://dev.azure.com/Acme/My%20Project/_git/Repo", "git@ssh.dev.azure.com:v3/Acme/My%20Project/Repo", "ssh://git@ssh.dev.azure.com/v3/Acme/My%20Project/Repo", "https://Acme.visualstudio.com/DefaultCollection/My%20Project/_git/Repo"] {
             let project = project_from_remote(remote).unwrap();
             assert_eq!(project.organization.to_lowercase(), "https://dev.azure.com/acme");
             assert_eq!(project.project, "My Project");
+            assert_eq!(project.repository, "Repo");
         }
         assert_eq!(project_from_remote("https://dev.azure.com/Acme/_git/Rex").unwrap().project, "Rex");
         assert!(project_from_remote("https://github.com/Acme/Repo").is_err());
@@ -147,7 +296,7 @@ mod tests {
     }
     #[test]
     fn maps_ticket_fields_and_builds_a_browser_reference() {
-        let project = Project { organization: "https://dev.azure.com/Acme".into(), project: "My Project".into() };
+        let project = Project { organization: "https://dev.azure.com/Acme".into(), repository: "Repo".into(), project: "My Project".into() };
         let result = ticket_results(&project, &json!([{ "id":42, "fields":{
             "System.Title":"Fix login", "System.State":"Active", "System.WorkItemType":"Bug",
             "System.AssignedTo": {"displayName":"Developer"}
