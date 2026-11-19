@@ -72,11 +72,13 @@ fn azure_cli() -> Result<Command, String> {
             let mut command = if executable.is_file() { Command::new(executable) }
             else if directory.join("az.cmd").is_file() && python.is_file() {
                 let mut command = Command::new(python);
-                command.args(["-IBm", "azure.cli"]);
+                command.args(["-I", "-B", "-X", "utf8", "-m", "azure.cli"]);
                 command
             } else { continue; };
             use std::os::windows::process::CommandExt;
-            command.creation_flags(0x08000000);
+            // GitGoblin launches Azure CLI without the console window the Windows account broker expects.
+            command.creation_flags(0x08000000).env("AZURE_CORE_ENABLE_BROKER_ON_WINDOWS", "false")
+                .env("PYTHONIOENCODING", "utf-8");
             return Ok(command);
         }
         Err("Install Azure CLI and its Azure DevOps extension.".into())
@@ -125,9 +127,16 @@ pub fn tickets(repo: &str, search: &str) -> Result<Value, String> {
 }
 
 pub fn sign_in() -> Result<(), String> {
-    let status = azure_cli()?.args(["login", "--allow-no-subscriptions", "--output", "none"])
-        .stdin(Stdio::null()).stdout(Stdio::null()).status().map_err(|e| e.to_string())?;
-    if status.success() { Ok(()) } else { Err("Azure sign-in did not complete.".into()) }
+    let output = azure_cli()?.args(["login", "--allow-no-subscriptions", "--output", "none", "--only-show-errors"])
+        .stdin(Stdio::null()).output().map_err(|e| e.to_string())?;
+    if output.status.success() { return Ok(()); }
+    Err(sign_in_error(&String::from_utf8_lossy(&output.stderr)))
+}
+
+fn sign_in_error(stderr: &str) -> String {
+    let reason = stderr.lines().find_map(|line| line.trim().strip_prefix("ERROR:"))
+        .map(str::trim).filter(|line| !line.is_empty()).unwrap_or("Please retry sign-in in your browser.");
+    format!("Azure CLI sign-in failed. {reason}")
 }
 
 fn repository_project(repo: &str) -> Result<Project, String> {
@@ -245,6 +254,13 @@ pub fn pull_request_diff(repo: &str, base: &str, head: &str) -> Result<String, S
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn reports_cli_sign_in_error_without_unrelated_output() {
+        assert_eq!(sign_in_error("WARNING: opening browser\nERROR: account unavailable\nextra output"),
+            "Azure CLI sign-in failed. account unavailable");
+        assert!(sign_in_error("").contains("retry sign-in"));
+    }
+
     #[test]
     fn uses_only_the_signed_in_reviewers_vote() {
         let mut pr = json!({"reviewers": [{"id":"other","vote":-10}, {"id":"ME","vote":10}]});
